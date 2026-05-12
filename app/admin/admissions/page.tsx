@@ -18,9 +18,11 @@ interface Admission {
   country_of_birth:     string;
   country_of_residence: string;
   marital_status:       MaritalStatus;
+  number_of_children:   number;
   occupation:           string;
   how_discovered:       string | null;
   motivation:           string;
+  photo_url:            string;
   status:               Status;
   created_at:           string;
   reviewed_at:          string | null;
@@ -169,7 +171,15 @@ export default function AdminAdmissionsPage() {
                   {filtered.map((a) => (
                     <tr key={a.id} className="hover:bg-muted-bg border-b border-border last:border-0">
                       <td className="px-6 py-[0.875rem] text-sm font-semibold">
-                        {a.first_name} {a.last_name}
+                        <div className="flex items-center gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={a.photo_url}
+                            alt={`${a.first_name} ${a.last_name}`}
+                            className="w-9 h-9 rounded-full object-cover flex-shrink-0 border border-border"
+                          />
+                          <span>{a.first_name} {a.last_name}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-[0.875rem] text-sm">
                         <a href={`mailto:${a.email}`} className="text-citsa-red-hex hover:underline">
@@ -240,18 +250,28 @@ function AdmissionDetailModal({
       <div className="fixed right-0 top-0 h-full w-full max-w-[520px] bg-white shadow-elevated z-50 flex flex-col">
 
         {/* Header */}
-        <div className="px-6 py-5 border-b border-border flex items-center justify-between">
-          <div>
-            <h2 className="font-serif text-[1.1rem] font-semibold text-[#141414]">
-              {admission.first_name} {admission.last_name}
-            </h2>
-            <p className="text-[0.72rem] text-muted-fg mt-0.5">
-              Demande reçue le {formatDate(admission.created_at)}
-            </p>
+        <div className="px-6 py-5 border-b border-border flex items-start justify-between gap-3">
+          <div className="flex items-center gap-4 min-w-0">
+            <a href={admission.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={admission.photo_url}
+                alt={`${admission.first_name} ${admission.last_name}`}
+                className="w-16 h-16 rounded-xl object-cover border border-border hover:opacity-80 transition-opacity"
+              />
+            </a>
+            <div className="min-w-0">
+              <h2 className="font-serif text-[1.1rem] font-semibold text-[#141414] truncate">
+                {admission.first_name} {admission.last_name}
+              </h2>
+              <p className="text-[0.72rem] text-muted-fg mt-0.5">
+                Demande reçue le {formatDate(admission.created_at)}
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-muted-fg hover:text-[#141414] transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted-bg"
+            className="text-muted-fg hover:text-[#141414] transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-muted-bg flex-shrink-0"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path d="M18 6 6 18M6 6l12 12"/>
@@ -283,6 +303,14 @@ function AdmissionDetailModal({
           <Section title="Profil">
             <Detail label="Pays de résidence"  value={admission.country_of_residence} />
             <Detail label="Situation matrimoniale" value={MARITAL_LABEL[admission.marital_status]} />
+            <Detail
+              label="Nombre d'enfants"
+              value={
+                admission.number_of_children === 0
+                  ? "Aucun"
+                  : `${admission.number_of_children} enfant${admission.number_of_children > 1 ? "s" : ""}`
+              }
+            />
             <Detail label="Profession"         value={admission.occupation} />
             {admission.how_discovered && (
               <Detail label="A connu CITSA via" value={admission.how_discovered} />

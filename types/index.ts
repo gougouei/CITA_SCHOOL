@@ -29,9 +29,11 @@ export interface AdmissionRequest {
   country_of_birth: string;
   country_of_residence: string;
   marital_status: "single" | "married" | "divorced" | "widowed";
+  number_of_children: number;
   occupation: string;
   how_discovered: string | null;
   motivation: string;
+  photo_url: string;
   status: "pending" | "approved" | "rejected";
   reviewed_by: string | null;
   reviewed_at: string | null;

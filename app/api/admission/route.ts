@@ -25,11 +25,25 @@ export async function POST(request: Request) {
     "marital_status",
     "occupation",
     "motivation",
+    "photo_url",
   ];
   for (const field of required) {
     if (!body[field] || (typeof body[field] === "string" && !(body[field] as string).trim())) {
       return NextResponse.json({ error: `Le champ "${field}" est requis.` }, { status: 400 });
     }
+  }
+
+  // Validation du nombre d'enfants (entier entre 0 et 30)
+  const numberOfChildren = Number(body.number_of_children);
+  if (
+    body.number_of_children === undefined || body.number_of_children === null ||
+    !Number.isInteger(numberOfChildren) ||
+    numberOfChildren < 0 || numberOfChildren > 30
+  ) {
+    return NextResponse.json(
+      { error: "Le nombre d'enfants doit être un entier entre 0 et 30." },
+      { status: 400 }
+    );
   }
 
   // Validation du format email
@@ -55,9 +69,11 @@ export async function POST(request: Request) {
       country_of_birth:     (body.country_of_birth     as string).trim(),
       country_of_residence: (body.country_of_residence as string).trim(),
       marital_status:       body.marital_status        as MaritalStatus,
+      number_of_children:   numberOfChildren,
       occupation:           (body.occupation           as string).trim(),
       how_discovered:       body.how_discovered        ? (body.how_discovered as string).trim() : null,
       motivation:           (body.motivation           as string).trim(),
+      photo_url:            (body.photo_url            as string).trim(),
       status:               "pending",
     })
     .select("id")

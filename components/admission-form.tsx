@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase";
 
 interface FormData {
   last_name:            string;
@@ -11,6 +12,7 @@ interface FormData {
   country_of_birth:     string;
   country_of_residence: string;
   marital_status:       string;
+  number_of_children:   string;
   occupation:           string;
   how_discovered:       string;
   motivation:           string;
@@ -24,10 +26,14 @@ const INITIAL: FormData = {
   country_of_birth:     "",
   country_of_residence: "",
   marital_status:       "",
+  number_of_children:   "",
   occupation:           "",
   how_discovered:       "",
   motivation:           "",
 };
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB
+const ACCEPTED_TYPES  = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 const COUNTRIES = [
   "Bénin",
@@ -48,30 +54,91 @@ const COUNTRIES = [
 ];
 
 export function AdmissionForm() {
-  const [form,       setForm]       = useState<FormData>(INITIAL);
-  const [submitting, setSubmitting] = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
-  const [submitted,  setSubmitted]  = useState(false);
+  const supabase = createClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [form,        setForm]        = useState<FormData>(INITIAL);
+  const [photoFile,   setPhotoFile]   = useState<File | null>(null);
+  const [photoPreview,setPhotoPreview]= useState<string | null>(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [submitted,   setSubmitted]   = useState(false);
 
   function update<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
+    const file = e.target.files?.[0];
+    if (!file) { setPhotoFile(null); setPhotoPreview(null); return; }
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setError("Format invalide. Utilisez JPG, PNG ou WEBP.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError("La photo doit faire moins de 5 MB.");
+      e.target.value = "";
+      return;
+    }
+
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  function removePhoto() {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!photoFile) {
+      setError("Veuillez ajouter une photo d'identité.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
+      // 1. Upload de la photo dans le bucket public admission-photos
+      const ext = photoFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("admission-photos")
+        .upload(path, photoFile, {
+          contentType: photoFile.type,
+          upsert: false,
+        });
+      if (uploadError) throw new Error(`Échec de l'envoi de la photo : ${uploadError.message}`);
+
+      // 2. Récupérer l'URL publique
+      const { data: urlData } = supabase.storage
+        .from("admission-photos")
+        .getPublicUrl(path);
+
+      // 3. Soumettre la demande avec le lien de la photo
       const res = await fetch("/api/admission", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          number_of_children: parseInt(form.number_of_children, 10),
+          photo_url: urlData.publicUrl,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur lors de la soumission");
+
       setSubmitted(true);
       setForm(INITIAL);
+      removePhoto();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de réseau");
     } finally {
@@ -110,6 +177,62 @@ export function AdmissionForm() {
           {error}
         </div>
       )}
+
+      {/* Photo d'identité — pleine largeur, en haut */}
+      <div className="mb-6">
+        <label className="text-[0.8rem] font-medium block mb-2">
+          Photo d&apos;identité <span className="text-citsa-red-hex">*</span>
+          <span className="ml-1 text-[0.7rem] font-normal text-muted-fg">
+            (JPG, PNG ou WEBP — max 5 MB)
+          </span>
+        </label>
+
+        {!photoPreview ? (
+          <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-border rounded-xl px-6 py-8 cursor-pointer hover:border-citsa-red-hex hover:bg-[hsla(0,75%,45%,0.02)] transition-all">
+            <div className="w-12 h-12 rounded-full bg-muted-bg flex items-center justify-center">
+              <svg className="w-5 h-5 text-muted-fg" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1={12} y1={3} x2={12} y2={15}/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-[#141414]">Cliquez pour ajouter une photo</p>
+              <p className="text-[0.72rem] text-muted-fg mt-0.5">JPG · PNG · WEBP — 5 MB max</p>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              required
+              className="hidden"
+            />
+          </label>
+        ) : (
+          <div className="flex items-center gap-4 border border-border rounded-xl p-4 bg-white">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoPreview}
+              alt="Aperçu"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg object-cover flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-[#141414] truncate">{photoFile?.name}</p>
+              <p className="text-[0.72rem] text-muted-fg mt-0.5">
+                {photoFile && `${(photoFile.size / 1024).toFixed(0)} KB · ${photoFile.type.split("/")[1].toUpperCase()}`}
+              </p>
+              <button
+                type="button"
+                onClick={removePhoto}
+                className="mt-2 text-[0.72rem] font-semibold text-citsa-red-hex hover:underline"
+              >
+                Changer de photo
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
 
@@ -208,6 +331,20 @@ export function AdmissionForm() {
             <option value="divorced">Divorcé(e)</option>
             <option value="widowed">Veuf/Veuve</option>
           </select>
+        </Field>
+
+        {/* Nombre d'enfants */}
+        <Field label="Nombre d'enfants" required>
+          <input
+            type="number"
+            value={form.number_of_children}
+            onChange={(e) => update("number_of_children", e.target.value)}
+            placeholder="0"
+            min={0}
+            max={30}
+            required
+            className={inputCls}
+          />
         </Field>
 
         {/* Profession */}
