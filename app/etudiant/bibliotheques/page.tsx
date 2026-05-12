@@ -1,0 +1,409 @@
+"use client";
+
+import { useState, useRef } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+type FileType = "pdf" | "video" | "audio" | "pptx";
+
+interface LibFile {
+  id: string;
+  name: string;
+  type: FileType;
+  size: string;
+  addedAt: string;
+  classe: string;
+  // En production : url signée depuis Supabase Storage
+  mockSrc?: string;
+}
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
+const FILES: LibFile[] = [
+  { id: "1", name: "Introduction aux rituels.pdf",   type: "pdf",   size: "2.4 MB",  addedAt: "2025-01-10", classe: "Initiation Niveau 1" },
+  { id: "2", name: "Cours 01 — Fondements.mp4",      type: "video", size: "124 MB",  addedAt: "2025-01-12", classe: "Initiation Niveau 1" },
+  { id: "3", name: "Méditation guidée.mp3",           type: "audio", size: "8.2 MB",  addedAt: "2025-01-14", classe: "Initiation Niveau 1" },
+  { id: "4", name: "Chants ancestraux vol.1.mp3",    type: "audio", size: "12.4 MB", addedAt: "2025-01-22", classe: "Initiation Niveau 1" },
+  { id: "5", name: "Présentation cérémonie.pptx",    type: "pptx",  size: "4.1 MB",  addedAt: "2025-01-15", classe: "Initiation Niveau 2" },
+  { id: "6", name: "Cours 02 — Pratiques.mp4",       type: "video", size: "210 MB",  addedAt: "2025-01-20", classe: "Initiation Niveau 2" },
+];
+
+// ─── Config par type ──────────────────────────────────────────────────────────
+const TYPE_CFG: Record<FileType, { label: string; icon: string; color: string; bg: string; readerIcon: string }> = {
+  pdf:   { label: "PDF",          icon: "📄", color: "text-[hsl(0,70%,45%)]",   bg: "bg-[hsla(0,70%,50%,0.12)]",   readerIcon: "📄" },
+  video: { label: "Vidéo",        icon: "🎬", color: "text-[hsl(280,70%,45%)]", bg: "bg-[hsla(280,70%,50%,0.12)]", readerIcon: "▶" },
+  audio: { label: "Audio",        icon: "🎵", color: "text-[hsl(200,70%,45%)]", bg: "bg-[hsla(200,70%,50%,0.12)]", readerIcon: "♪" },
+  pptx:  { label: "Présentation", icon: "📊", color: "text-[hsl(25,90%,40%)]",  bg: "bg-[hsla(25,90%,50%,0.12)]",  readerIcon: "📊" },
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+// ─── Page ────────────────────────────────────────────────────────────────────
+export default function EtudiantBibliothequesPage() {
+  const [activeFile, setActiveFile] = useState<LibFile | null>(null);
+
+  // Grouper par classe
+  const classes = Array.from(new Set(FILES.map((f) => f.classe)));
+
+  return (
+    <>
+      <header className="bg-white border-b border-border px-4 py-4 sm:px-8 sm:py-5">
+        <h1 className="font-serif text-xl sm:text-2xl font-semibold text-[#141414]">Bibliothèques</h1>
+        <p className="text-sm text-muted-fg mt-0.5">Consultez les documents de vos classes en ligne</p>
+      </header>
+
+      <div className="p-4 sm:p-6 lg:p-8 flex flex-col gap-8 sm:gap-10">
+        {classes.map((classe) => {
+          const group = FILES.filter((f) => f.classe === classe);
+          return (
+            <section key={classe}>
+              {/* Titre de classe */}
+              <div className="flex items-center gap-3 mb-4">
+                <span className="w-2 h-2 rounded-full bg-citsa-red-hex flex-shrink-0" />
+                <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
+                  {classe}
+                </h2>
+                <span className="text-[0.7rem] text-muted-fg">
+                  — {group.length} fichier{group.length > 1 ? "s" : ""}
+                </span>
+              </div>
+
+              {/* Grille */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {group.map((f) => (
+                  <FileCard key={f.id} file={f} onRead={() => setActiveFile(f)} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {/* Lecteur */}
+      {activeFile && (
+        <ReaderModal file={activeFile} onClose={() => setActiveFile(null)} />
+      )}
+    </>
+  );
+}
+
+// ─── File Card ────────────────────────────────────────────────────────────────
+function FileCard({ file, onRead }: { file: LibFile; onRead: () => void }) {
+  const cfg = TYPE_CFG[file.type];
+
+  const readLabel: Record<FileType, string> = {
+    pdf:   "Lire le document",
+    video: "Regarder",
+    audio: "Écouter",
+    pptx:  "Consulter",
+  };
+
+  return (
+    <div className="bg-white border border-border rounded-xl p-5 flex flex-col gap-4 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150">
+      {/* Icône + badge */}
+      <div className="flex items-start justify-between">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${cfg.bg}`}>
+          {cfg.icon}
+        </div>
+        <Badge className={`text-[0.65rem] uppercase ${cfg.bg} ${cfg.color} border-0`}>
+          {cfg.label}
+        </Badge>
+      </div>
+
+      {/* Nom */}
+      <div>
+        <p className="text-sm font-semibold leading-snug line-clamp-2 text-[#141414]">{file.name}</p>
+      </div>
+
+      {/* Meta */}
+      <div className="flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-3 mt-auto">
+        <span>{file.size}</span>
+        <span>{formatDate(file.addedAt)}</span>
+      </div>
+
+      {/* Bouton Lire */}
+      <Button variant="accent" size="sm" className="w-full" onClick={onRead}>
+        {readLabel[file.type]}
+      </Button>
+    </div>
+  );
+}
+
+// ─── Reader Modal ─────────────────────────────────────────────────────────────
+function ReaderModal({ file, onClose }: { file: LibFile; onClose: () => void }) {
+  const cfg = TYPE_CFG[file.type];
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-[3px] z-40"
+        onClick={onClose}
+      />
+
+      {/* Panel centré */}
+      <div className="fixed inset-0 sm:inset-4 md:inset-8 bg-white sm:rounded-2xl shadow-elevated z-50 flex flex-col overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0 ${cfg.bg}`}>
+              {cfg.icon}
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-[#141414] truncate">{file.name}</p>
+              <p className="text-[0.7rem] text-muted-fg">{file.size} · {formatDate(file.addedAt)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+            <span className={`text-[0.65rem] font-bold uppercase px-2 py-1 rounded-full ${cfg.bg} ${cfg.color}`}>
+              {cfg.label}
+            </span>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Lecteur */}
+        <div className="flex-1 overflow-hidden flex items-center justify-center bg-[#0d0d0d] p-0">
+          {file.type === "video" && <VideoReader file={file} />}
+          {file.type === "audio" && <AudioReader file={file} />}
+          {file.type === "pdf"   && <PdfReader   file={file} />}
+          {file.type === "pptx"  && <PptxReader  file={file} />}
+        </div>
+
+        {/* Pied — avertissement no-download */}
+        <div className="flex items-center justify-center gap-2 px-6 py-2.5 border-t border-border bg-secondary flex-shrink-0">
+          <svg className="w-3.5 h-3.5 text-muted-fg flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <rect x={3} y={11} width={18} height={11} rx={2} ry={2}/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <p className="text-[0.72rem] text-muted-fg">
+            Ce contenu est réservé aux membres de CITSA — consultation en ligne uniquement, non téléchargeable.
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Lecteur Vidéo ────────────────────────────────────────────────────────────
+function VideoReader({ file }: { file: LibFile }) {
+  return (
+    <div className="w-full h-full flex items-center justify-center p-6">
+      {file.mockSrc ? (
+        <video
+          className="max-w-full max-h-full rounded-lg"
+          controls
+          controlsList="nodownload nofullscreen"
+          disablePictureInPicture
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <source src={file.mockSrc} />
+        </video>
+      ) : (
+        <PlaceholderViewer
+          icon="🎬"
+          label="Lecteur vidéo"
+          color="text-[hsl(280,70%,60%)]"
+          bg="bg-[hsla(280,70%,50%,0.12)]"
+          name={file.name}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Lecteur Audio ────────────────────────────────────────────────────────────
+function AudioReader({ file }: { file: LibFile }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [current, setCurrent]   = useState(0);
+
+  function togglePlay() {
+    if (!audioRef.current) return;
+    if (playing) { audioRef.current.pause(); }
+    else         { audioRef.current.play(); }
+    setPlaying(!playing);
+  }
+
+  function handleTimeUpdate() {
+    if (!audioRef.current) return;
+    setCurrent(audioRef.current.currentTime);
+    setProgress((audioRef.current.currentTime / (audioRef.current.duration || 1)) * 100);
+  }
+
+  function handleSeek(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!audioRef.current) return;
+    const t = (parseFloat(e.target.value) / 100) * (audioRef.current.duration || 0);
+    audioRef.current.currentTime = t;
+    setProgress(parseFloat(e.target.value));
+  }
+
+  function fmt(s: number) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-8 w-full max-w-md p-8">
+      {/* Artwork */}
+      <div className="w-40 h-40 rounded-2xl bg-[hsla(200,70%,50%,0.12)] flex items-center justify-center text-6xl shadow-elevated">
+        🎵
+      </div>
+
+      {/* Nom */}
+      <div className="text-center">
+        <p className="text-white font-semibold text-base">{file.name.replace(/\.[^.]+$/, "")}</p>
+        <p className="text-white/50 text-sm mt-1">CITSA Occulte School</p>
+      </div>
+
+      {/* Barre de progression */}
+      <div className="w-full flex flex-col gap-2">
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={progress}
+          onChange={handleSeek}
+          className="w-full h-1 accent-[hsl(200,70%,55%)] cursor-pointer"
+        />
+        <div className="flex justify-between text-white/40 text-[0.7rem]">
+          <span>{fmt(current)}</span>
+          <span>{duration ? fmt(duration) : "--:--"}</span>
+        </div>
+      </div>
+
+      {/* Contrôles */}
+      <div className="flex items-center gap-6">
+        <button
+          onClick={() => { if (audioRef.current) audioRef.current.currentTime -= 10; }}
+          className="text-white/60 hover:text-white transition-colors"
+          title="−10s"
+        >
+          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+            <text x="8.5" y="15.5" fontSize="5" fill="currentColor">10</text>
+          </svg>
+        </button>
+
+        <button
+          onClick={togglePlay}
+          className="w-14 h-14 rounded-full bg-[hsl(200,70%,55%)] flex items-center justify-center text-white hover:opacity-90 transition-opacity shadow-lg"
+        >
+          {playing ? (
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <rect x={6} y={4} width={4} height={16}/><rect x={14} y={4} width={4} height={16}/>
+            </svg>
+          ) : (
+            <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          )}
+        </button>
+
+        <button
+          onClick={() => { if (audioRef.current) audioRef.current.currentTime += 10; }}
+          className="text-white/60 hover:text-white transition-colors"
+          title="+10s"
+        >
+          <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+            <text x="8.5" y="15.5" fontSize="5" fill="currentColor">10</text>
+          </svg>
+        </button>
+      </div>
+
+      {/* Audio element caché */}
+      {file.mockSrc ? (
+        <audio
+          ref={audioRef}
+          src={file.mockSrc}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+          onEnded={() => setPlaying(false)}
+          onContextMenu={(e) => e.preventDefault()}
+        />
+      ) : (
+        <p className="text-white/30 text-[0.72rem] text-center">
+          Lecture disponible après connexion Supabase
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── Lecteur PDF ──────────────────────────────────────────────────────────────
+function PdfReader({ file }: { file: LibFile }) {
+  return file.mockSrc ? (
+    <iframe
+      src={`${file.mockSrc}#toolbar=0&navpanes=0&scrollbar=1`}
+      className="w-full h-full border-0"
+      title={file.name}
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  ) : (
+    <PlaceholderViewer
+      icon="📄"
+      label="Lecteur PDF"
+      color="text-[hsl(0,70%,60%)]"
+      bg="bg-[hsla(0,70%,50%,0.12)]"
+      name={file.name}
+    />
+  );
+}
+
+// ─── Présentation PPTX ───────────────────────────────────────────────────────
+function PptxReader({ file }: { file: LibFile }) {
+  return file.mockSrc ? (
+    // En production : Google Docs viewer ou Office 365 embed
+    <iframe
+      src={`https://docs.google.com/gview?url=${encodeURIComponent(file.mockSrc)}&embedded=true`}
+      className="w-full h-full border-0"
+      title={file.name}
+    />
+  ) : (
+    <PlaceholderViewer
+      icon="📊"
+      label="Visionneur de présentation"
+      color="text-[hsl(25,90%,60%)]"
+      bg="bg-[hsla(25,90%,50%,0.12)]"
+      name={file.name}
+    />
+  );
+}
+
+// ─── Placeholder (mode preview sans fichier réel) ─────────────────────────────
+function PlaceholderViewer({
+  icon, label, color, bg, name,
+}: {
+  icon: string; label: string; color: string; bg: string; name: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 text-center p-8">
+      <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl ${bg}`}>
+        {icon}
+      </div>
+      <div>
+        <p className={`font-semibold text-base ${color}`}>{label}</p>
+        <p className="text-white/60 text-sm mt-1">{name}</p>
+      </div>
+      <div className="mt-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl">
+        <p className="text-white/40 text-[0.75rem]">
+          Lecture disponible après la configuration de Supabase Storage
+        </p>
+      </div>
+    </div>
+  );
+}

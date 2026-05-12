@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CITSA International — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --citsa-black: #141414;
+  --citsa-black-soft: #1e1e1e;
+  --citsa-red: hsl(0,75%,45%);
+  --citsa-red-hex: #C91D1D;
+  --citsa-red-light: hsl(0,70%,55%);
+  --citsa-red-light-hex: #DD3C3C;
+  --citsa-red-dark: hsl(0,80%,35%);
+  --citsa-red-dark-hex: #A11212;
+  --cream: hsl(30,20%,97%);
+  --cream-hex: #F9F7F6;
+  --warm-gray: hsl(20,5%,92%);
+  --warm-gray-hex: #ECEBEA;
+  --background: #FFFFFF;
+  --foreground: #141414;
+  --secondary: #F5F5F5;
+  --muted: #F2F2F2;
+  --muted-fg: #666666;
+  --border: #E0E0E0;
+
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-card: 0 4px 24px -4px rgba(0,0,0,.08);
+  --shadow-elevated: 0 12px 40px -8px rgba(0,0,0,.15);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+  font-size: 16px;
+}
+
+/* ─── LAYOUT ─── */
+.ds-wrap { max-width: 1280px; margin: 0 auto; padding: 0 2.5rem 6rem; }
+
+/* ─── HERO ─── */
+.ds-hero {
+  background: var(--citsa-black);
+  color: white;
+  padding: 5rem 2.5rem 4rem;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 4rem;
+}
+.ds-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 70% 50%, hsl(0,75%,45%,.12), transparent 70%);
+}
+.ds-hero-inner { max-width: 1280px; margin: 0 auto; position: relative; }
+.ds-hero-eyebrow {
+  font-family: var(--font-sans);
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--citsa-red-light);
+  margin-bottom: 1.25rem;
+}
+.ds-hero h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 600;
+  line-height: 1.15;
+  color: white;
+  margin-bottom: 1rem;
+}
+.ds-hero h1 em {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--citsa-red-light), var(--citsa-red-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.ds-hero p {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,.55);
+  max-width: 520px;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+.ds-hero-meta {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.ds-hero-meta-item { font-size: .8rem; color: rgba(255,255,255,.4); }
+.ds-hero-meta-item strong { display: block; color: rgba(255,255,255,.7); font-weight: 500; margin-bottom: .15rem; }
+
+/* ─── NAV ─── */
+.ds-nav {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: 4rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.ds-nav a {
+  font-size: .8rem;
+  font-weight: 500;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  text-decoration: none;
+  padding: .35rem .75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  transition: all .15s;
+}
+.ds-nav a:hover { color: var(--foreground); border-color: var(--border); background: var(--muted); }
+
+/* ─── SECTIONS ─── */
+.ds-section { margin-bottom: 5rem; }
+.ds-section-header { margin-bottom: 2rem; }
+.ds-section-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--citsa-red-hex);
+  margin-bottom: .5rem;
+}
+.ds-section-title {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+.ds-section-desc { font-size: .9rem; color: var(--muted-fg); margin-top: .5rem; max-width: 560px; }
+
+/* ─── COLORS ─── */
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+.color-swatch {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.color-block { height: 80px; width: 100%; }
+.color-info { padding: .75rem 1rem; background: white; }
+.color-name { font-size: .8rem; font-weight: 600; color: var(--foreground); }
+.color-hex { font-size: .75rem; font-family: monospace; color: var(--muted-fg); }
+.color-hsl { font-size: .7rem; font-family: monospace; color: var(--muted-fg); }
+
+.palette-group { margin-bottom: 2.5rem; }
+.palette-label {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  margin-bottom: .75rem;
+}
+
+/* ─── TYPOGRAPHY ─── */
+.type-families { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 3rem; }
+.type-family-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 2rem;
+  background: var(--secondary);
+}
+.type-family-meta { font-size: .75rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-fg); margin-bottom: .5rem; }
+.type-family-name { font-size: 1rem; font-weight: 600; color: var(--foreground); margin-bottom: 1.25rem; }
+.type-family-sample { font-size: 2.25rem; line-height: 1.2; color: var(--foreground); }
+.type-family-weights { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.type-weight-chip {
+  font-size: .72rem;
+  padding: .2rem .6rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--muted-fg);
+}
+
+.type-scale { display: flex; flex-direction: column; gap: 0; }
+.type-scale-row {
+  display: flex;
+  align-items: baseline;
+  gap: 2rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.type-scale-row:last-child { border-bottom: none; }
+.type-scale-label {
+  font-size: .72rem;
+  font-family: monospace;
+  color: var(--muted-fg);
+  min-width: 130px;
+  flex-shrink: 0;
+}
+.type-scale-sample { color: var(--foreground); line-height: 1.3; }
+
+/* ─── SPACING ─── */
+.spacing-grid { display: flex; flex-direction: column; gap: .5rem; }
+.spacing-row { display: flex; align-items: center; gap: 1.5rem; }
+.spacing-bar-wrap { flex: 1; }
+.spacing-bar { background: var(--citsa-red-hex); height: 20px; border-radius: 3px; }
+.spacing-meta { min-width: 200px; display: flex; gap: 1rem; font-size: .8rem; }
+.spacing-token { font-family: monospace; color: var(--foreground); min-width: 60px; }
+.spacing-px { color: var(--muted-fg); min-width: 40px; }
+.spacing-rem { color: var(--muted-fg); }
+
+/* ─── RADIUS ─── */
+.radius-grid { display: flex; flex-wrap: wrap; gap: 1rem; }
+.radius-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .75rem;
+  padding: 1.5rem;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  min-width: 120px;
+}
+.radius-box {
+  width: 60px;
+  height: 60px;
+  background: var(--citsa-black);
+}
+.radius-info { text-align: center; }
+.radius-name { font-size: .78rem; font-weight: 600; display: block; }
+.radius-val { font-size: .7rem; font-family: monospace; color: var(--muted-fg); display: block; margin-top: .15rem; }
+
+/* ─── SHADOWS ─── */
+.shadow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1.5rem; }
+.shadow-item {
+  padding: 2rem 1.5rem;
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.shadow-name { font-size: .78rem; font-weight: 600; margin-top: 1rem; display: block; }
+.shadow-val { font-size: .68rem; font-family: monospace; color: var(--muted-fg); margin-top: .25rem; display: block; word-break: break-all; }
+
+/* ─── COMPONENTS ─── */
+.comp-subsection { margin-bottom: 3rem; }
+.comp-subsection-title {
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  margin-bottom: 1.25rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid var(--border);
+}
+.comp-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-size: .875rem; font-weight: 500;
+  line-height: 1; letter-spacing: .01em;
+  border: none; cursor: pointer;
+  transition: all .15s cubic-bezier(.4,0,.2,1);
+  text-decoration: none;
+}
+.btn:focus-visible { outline: 2px solid var(--citsa-red-hex); outline-offset: 2px; }
+
+.btn-primary {
+  background: var(--citsa-black); color: white;
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+}
+.btn-primary:hover { background: #2a2a2a; }
+
+.btn-accent {
+  background: var(--citsa-red-hex); color: white;
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+}
+.btn-accent:hover { background: var(--citsa-red-light-hex); }
+
+.btn-secondary {
+  background: var(--secondary); color: var(--foreground);
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--muted); }
+
+.btn-outline {
+  background: transparent; color: var(--foreground);
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { background: var(--muted); }
+
+.btn-ghost {
+  background: transparent; color: var(--foreground);
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+}
+.btn-ghost:hover { background: var(--muted); }
+
+.btn-destructive {
+  background: hsl(0,84%,60%); color: white;
+  padding: .625rem 1.25rem; border-radius: var(--radius-md);
+}
+.btn-destructive:hover { background: hsl(0,84%,50%); }
+
+.btn-sm { padding: .4rem .875rem; font-size: .8rem; }
+.btn-lg { padding: .75rem 1.75rem; font-size: 1rem; }
+
+/* Badges */
+.badge {
+  display: inline-flex; align-items: center;
+  font-family: var(--font-sans); font-size: .72rem; font-weight: 600;
+  letter-spacing: .04em;
+  padding: .2rem .6rem; border-radius: var(--radius-full);
+  text-transform: uppercase;
+}
+.badge-default { background: var(--citsa-black); color: white; }
+.badge-accent { background: var(--citsa-red-hex); color: white; }
+.badge-secondary { background: var(--secondary); color: var(--foreground); border: 1px solid var(--border); }
+.badge-muted { background: var(--muted); color: var(--muted-fg); }
+.badge-outline { background: transparent; border: 1px solid var(--border); color: var(--muted-fg); }
+.badge-success { background: hsl(142,70%,35%,.12); color: hsl(142,70%,35%); }
+.badge-warning { background: hsl(38,90%,50%,.15); color: hsl(38,70%,30%); }
+.badge-destructive { background: hsl(0,84%,60%,.12); color: hsl(0,84%,40%); }
+
+/* Inputs */
+.input-row { display: flex; flex-direction: column; gap: 1rem; max-width: 480px; }
+.input-field {
+  display: flex; flex-direction: column; gap: .4rem;
+}
+.input-label { font-size: .8rem; font-weight: 500; color: var(--foreground); }
+.input-label .req { color: var(--citsa-red-hex); margin-left: .1rem; }
+input[type=text], input[type=email], input[type=password], textarea, select {
+  font-family: var(--font-sans); font-size: .875rem;
+  background: white; color: var(--foreground);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: .55rem .875rem;
+  height: 2.5rem;
+  width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: #9ca3af; }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--citsa-red-hex);
+  box-shadow: 0 0 0 2px rgba(201,29,29,.15);
+}
+input.error { border-color: hsl(0,84%,60%); }
+input.error:focus { box-shadow: 0 0 0 2px hsl(0,84%,60%,.2); }
+.input-hint { font-size: .75rem; color: var(--muted-fg); }
+.input-error-msg { font-size: .75rem; color: hsl(0,84%,50%); }
+textarea { height: auto; min-height: 80px; resize: vertical; padding: .625rem .875rem; }
+
+/* Cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+.card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: box-shadow .2s;
+  box-shadow: var(--shadow-card);
+}
+.card:hover { box-shadow: var(--shadow-elevated); }
+.card-header { padding: 1.5rem 1.5rem 0; }
+.card-body { padding: 1rem 1.5rem; }
+.card-footer {
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title { font-family: var(--font-serif); font-size: 1.15rem; font-weight: 600; }
+.card-subtitle { font-size: .825rem; color: var(--muted-fg); margin-top: .25rem; }
+.card-text { font-size: .875rem; color: var(--foreground); line-height: 1.65; }
+
+.card-featured {
+  background: var(--citsa-black); color: white;
+  border-color: transparent;
+}
+.card-featured .card-title { color: white; }
+.card-featured .card-subtitle { color: rgba(255,255,255,.5); }
+.card-featured .card-text { color: rgba(255,255,255,.7); }
+.card-featured .card-footer { border-color: rgba(255,255,255,.1); }
+
+/* Alerts */
+.alert-list { display: flex; flex-direction: column; gap: .75rem; max-width: 560px; }
+.alert {
+  border-radius: var(--radius-lg);
+  padding: .875rem 1.1rem;
+  font-size: .875rem;
+  display: flex; align-items: flex-start; gap: .75rem;
+  border: 1px solid;
+}
+.alert-icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+.alert-content strong { display: block; font-weight: 600; margin-bottom: .2rem; }
+.alert-default { background: var(--secondary); border-color: var(--border); color: var(--foreground); }
+.alert-success { background: hsl(142,70%,35%,.08); border-color: hsl(142,70%,35%,.25); color: hsl(142,60%,25%); }
+.alert-warning { background: hsl(38,90%,50%,.08); border-color: hsl(38,90%,50%,.3); color: hsl(38,70%,25%); }
+.alert-destructive { background: hsl(0,84%,60%,.08); border-color: hsl(0,84%,60%,.25); color: hsl(0,70%,35%); }
+
+/* Separator */
+.separator { height: 1px; background: var(--border); margin: .5rem 0; }
+.separator-vertical { width: 1px; height: 24px; background: var(--border); margin: 0 .5rem; }
+
+/* ─── MOTION ─── */
+.motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.motion-card {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 1.5rem; background: var(--secondary);
+  overflow: hidden; position: relative;
+}
+.motion-label { font-size: .75rem; font-weight: 600; color: var(--muted-fg); letter-spacing: .08em; text-transform: uppercase; margin-bottom: .75rem; }
+.motion-desc { font-size: .8rem; color: var(--muted-fg); margin-bottom: 1rem; }
+.motion-demo {
+  width: 40px; height: 40px; background: var(--citsa-red-hex);
+  border-radius: var(--radius-md);
+}
+.motion-card:hover .motion-demo-slide { animation: demoSlide .3s ease-out; }
+.motion-card:hover .motion-demo-fade { animation: demoFade .2s ease-out; }
+.motion-card:hover .motion-demo-zoom { animation: demoZoom .2s ease-out; }
+.motion-card:hover .motion-demo-pulse { animation: pulse 1s cubic-bezier(.4,0,.6,1) infinite; }
+
+@keyframes demoSlide {
+  from { transform: translateX(-8px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes demoFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes demoZoom {
+  from { transform: scale(.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes pulse {
+  50% { opacity: .5; }
+}
+
+/* ─── GRADIENTS ─── */
+.gradient-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.gradient-card {
+  height: 100px;
+  border-radius: var(--radius-xl);
+  display: flex; align-items: flex-end;
+  padding: .875rem 1rem;
+  font-size: .75rem; font-weight: 600; color: white;
+  letter-spacing: .04em;
+}
+
+/* ─── BREAKPOINTS ─── */
+.breakpoints-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.breakpoints-table th, .breakpoints-table td {
+  padding: .75rem 1rem; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.breakpoints-table th {
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted-fg);
+  background: var(--secondary);
+}
+.breakpoints-table td:first-child { font-family: monospace; font-weight: 600; }
+.breakpoints-table tr:last-child td { border-bottom: none; }
+
+/* ─── FOOTER ─── */
+.ds-footer {
+  margin-top: 6rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: .8rem; color: var(--muted-fg);
+}
+.ds-footer strong { color: var(--foreground); font-weight: 600; }
+
+@media (max-width: 720px) {
+  .type-families { grid-template-columns: 1fr; }
+  .ds-hero { padding: 3rem 1.5rem; }
+  .ds-wrap { padding: 0 1.25rem 4rem; }
+  .spacing-meta { min-width: unset; }
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="ds-hero">
+  <div class="ds-hero-inner">
+    <div class="ds-hero-eyebrow">Official Secure Portal</div>
+    <h1>CITSA International<br><em>Design System</em></h1>
+    <p>Documentation complète des composants visuels, tokens de design et patterns d'interface du portail officiel.</p>
+    <div class="ds-hero-meta">
+      <div class="ds-hero-meta-item"><strong>Version</strong>1.0</div>
+      <div class="ds-hero-meta-item"><strong>Stack</strong>TailwindCSS + ShadCN</div>
+      <div class="ds-hero-meta-item"><strong>Framework</strong>React / Lovable</div>
+      <div class="ds-hero-meta-item"><strong>Breakpoints</strong>sm · md · lg · xl</div>
+    </div>
+  </div>
+</div>
+
+<div class="ds-wrap">
+
+<!-- NAV -->
+<nav class="ds-nav">
+  <a href="#colors">Couleurs</a>
+  <a href="#typography">Typographie</a>
+  <a href="#spacing">Espacement</a>
+  <a href="#radius">Arrondis</a>
+  <a href="#shadows">Ombres</a>
+  <a href="#buttons">Boutons</a>
+  <a href="#badges">Badges</a>
+  <a href="#forms">Formulaires</a>
+  <a href="#cards">Cartes</a>
+  <a href="#alerts">Alertes</a>
+  <a href="#motion">Mouvement</a>
+  <a href="#gradients">Dégradés</a>
+  <a href="#breakpoints">Breakpoints</a>
+</nav>
+
+<!-- COLORS -->
+<section class="ds-section" id="colors">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Palette de couleurs</h2>
+    <p class="ds-section-desc">Les tokens de couleur sont définis en HSL via des variables CSS. La couleur brand CITSA Red est l'accent principal, jouant contre un noir profond.</p>
+  </div>
+
+  <div class="palette-group">
+    <div class="palette-label">Brand Colors</div>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-block" style="background:#141414"></div>
+        <div class="color-info">
+          <div class="color-name">CITSA Black</div>
+          <div class="color-hex">#141414</div>
+          <div class="color-hsl">hsl(0, 0%, 8%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(0,75%,45%)"></div>
+        <div class="color-info">
+          <div class="color-name">CITSA Red</div>
+          <div class="color-hex">#C91D1D</div>
+          <div class="color-hsl">hsl(0, 75%, 45%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(0,70%,55%)"></div>
+        <div class="color-info">
+          <div class="color-name">CITSA Red Light</div>
+          <div class="color-hex">#DD3C3C</div>
+          <div class="color-hsl">hsl(0, 70%, 55%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(0,80%,35%)"></div>
+        <div class="color-info">
+          <div class="color-name">CITSA Red Dark</div>
+          <div class="color-hex">#A11212</div>
+          <div class="color-hsl">hsl(0, 80%, 35%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(30,20%,97%); border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Cream</div>
+          <div class="color-hex">#F9F7F6</div>
+          <div class="color-hsl">hsl(30, 20%, 97%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(20,5%,92%); border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Warm Gray</div>
+          <div class="color-hex">#ECEBEA</div>
+          <div class="color-hsl">hsl(20, 5%, 92%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="palette-group">
+    <div class="palette-label">Semantic / UI Colors</div>
+    <div class="color-grid">
+      <div class="color-swatch">
+        <div class="color-block" style="background:#FFFFFF; border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Background</div>
+          <div class="color-hex">#FFFFFF</div>
+          <div class="color-hsl">hsl(0, 0%, 100%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#141414"></div>
+        <div class="color-info">
+          <div class="color-name">Foreground</div>
+          <div class="color-hex">#141414</div>
+          <div class="color-hsl">hsl(0, 0%, 8%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#F5F5F5; border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Secondary</div>
+          <div class="color-hex">#F5F5F5</div>
+          <div class="color-hsl">hsl(0, 0%, 96%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#F2F2F2; border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Muted</div>
+          <div class="color-hex">#F2F2F2</div>
+          <div class="color-hsl">hsl(0, 0%, 95%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#666666"></div>
+        <div class="color-info">
+          <div class="color-name">Muted Foreground</div>
+          <div class="color-hex">#666666</div>
+          <div class="color-hsl">hsl(0, 0%, 40%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:#E0E0E0; border-bottom:1px solid #e5e5e5"></div>
+        <div class="color-info">
+          <div class="color-name">Border / Input</div>
+          <div class="color-hex">#E0E0E0</div>
+          <div class="color-hsl">hsl(0, 0%, 88%)</div>
+        </div>
+      </div>
+      <div class="color-swatch">
+        <div class="color-block" style="background:hsl(0,84%,60%)"></div>
+        <div class="color-info">
+          <div class="color-name">Destructive</div>
+          <div class="color-hex">#F14B4B</div>
+          <div class="color-hsl">hsl(0, 84%, 60%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TYPOGRAPHY -->
+<section class="ds-section" id="typography">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Typographie</h2>
+    <p class="ds-section-desc">Duo serif/sans — Playfair Display pour les titres, Plus Jakarta Sans pour l'interface et le corps de texte.</p>
+  </div>
+
+  <div class="type-families">
+    <div class="type-family-card">
+      <div class="type-family-meta">Serif · h1, h2, h3</div>
+      <div class="type-family-name">Playfair Display</div>
+      <div class="type-family-sample" style="font-family:var(--font-serif); font-weight:600">Aa Bb Cc<br><span style="font-style:italic;font-weight:400">Italic Form</span></div>
+      <div class="type-family-weights">
+        <span class="type-weight-chip" style="font-family:var(--font-serif);font-weight:400">Regular 400</span>
+        <span class="type-weight-chip" style="font-family:var(--font-serif);font-weight:500">Medium 500</span>
+        <span class="type-weight-chip" style="font-family:var(--font-serif);font-weight:600">Semibold 600</span>
+        <span class="type-weight-chip" style="font-family:var(--font-serif);font-weight:700">Bold 700</span>
+      </div>
+    </div>
+    <div class="type-family-card">
+      <div class="type-family-meta">Sans-serif · UI & Body</div>
+      <div class="type-family-name">Plus Jakarta Sans</div>
+      <div class="type-family-sample" style="font-family:var(--font-sans); font-weight:500">Aa Bb Cc<br><span style="font-weight:300">Light Form</span></div>
+      <div class="type-family-weights">
+        <span class="type-weight-chip" style="font-weight:300">Light 300</span>
+        <span class="type-weight-chip" style="font-weight:400">Regular 400</span>
+        <span class="type-weight-chip" style="font-weight:500">Medium 500</span>
+        <span class="type-weight-chip" style="font-weight:600">Semibold 600</span>
+        <span class="type-weight-chip" style="font-weight:700">Bold 700</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="comp-subsection-title">Échelle typographique — Tailwind classes</div>
+  <div class="type-scale">
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-xs<br>0.75rem / 1rem</div>
+      <div class="type-scale-sample" style="font-size:.75rem;line-height:1rem">Le portail officiel du Maître Spirituel. Liens vérifiés, consultations sécurisées.</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-sm<br>0.875rem / 1.25rem</div>
+      <div class="type-scale-sample" style="font-size:.875rem;line-height:1.25rem">Le portail officiel du Maître Spirituel. Liens vérifiés, consultations sécurisées.</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-base<br>1rem / 1.5rem</div>
+      <div class="type-scale-sample" style="font-size:1rem;line-height:1.5rem">Le portail officiel du Maître Spirituel. Liens vérifiés.</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-lg<br>1.125rem / 1.75rem</div>
+      <div class="type-scale-sample" style="font-size:1.125rem;line-height:1.75rem">Enseignements authentiques et consultations.</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-xl<br>1.25rem / 1.75rem</div>
+      <div class="type-scale-sample" style="font-size:1.25rem;line-height:1.75rem">CITSA International</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-2xl<br>1.5rem / 2rem</div>
+      <div class="type-scale-sample" style="font-size:1.5rem;line-height:2rem;font-family:var(--font-serif)">CITSA International</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-3xl<br>1.875rem / 2.25rem</div>
+      <div class="type-scale-sample" style="font-size:1.875rem;line-height:2.25rem;font-family:var(--font-serif);font-weight:600">Portail Officiel</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-4xl<br>2.25rem / 2.5rem</div>
+      <div class="type-scale-sample" style="font-size:2.25rem;line-height:2.5rem;font-family:var(--font-serif);font-weight:700">CITSA</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-5xl (md:)<br>3rem / 1</div>
+      <div class="type-scale-sample" style="font-size:3rem;line-height:1;font-family:var(--font-serif);font-weight:700">CITSA</div>
+    </div>
+    <div class="type-scale-row">
+      <div class="type-scale-label">text-6xl (lg:)<br>3.75rem / 1</div>
+      <div class="type-scale-sample" style="font-size:3.75rem;line-height:1;font-family:var(--font-serif);font-weight:700">CITSA</div>
+    </div>
+  </div>
+
+  <div style="margin-top:2rem">
+    <div class="comp-subsection-title">Gradients textuels</div>
+    <div class="comp-row">
+      <span style="font-family:var(--font-serif);font-size:2rem;font-weight:700;background:linear-gradient(135deg,hsl(0,75%,45%),hsl(0,80%,35%));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">.text-citsa-gradient</span>
+      <code style="font-size:.75rem;color:var(--muted-fg);font-family:monospace;padding:.2rem .5rem;background:var(--secondary);border-radius:4px">linear-gradient(135deg, citsa-red → citsa-red-dark)</code>
+    </div>
+  </div>
+</section>
+
+<!-- SPACING -->
+<section class="ds-section" id="spacing">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Espacement</h2>
+    <p class="ds-section-desc">Échelle en multiples de 0.25rem (4px). Les valeurs clés utilisées dans le CSS sont listées ci-dessous.</p>
+  </div>
+  <div class="spacing-grid">
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">1</span><span class="spacing-px">4px</span><span class="spacing-rem">0.25rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:4px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">2</span><span class="spacing-px">8px</span><span class="spacing-rem">0.5rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:8px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">3</span><span class="spacing-px">12px</span><span class="spacing-rem">0.75rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:12px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">4</span><span class="spacing-px">16px</span><span class="spacing-rem">1rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:16px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">5</span><span class="spacing-px">20px</span><span class="spacing-rem">1.25rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:20px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">6</span><span class="spacing-px">24px</span><span class="spacing-rem">1.5rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:24px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">8</span><span class="spacing-px">32px</span><span class="spacing-rem">2rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:32px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">10</span><span class="spacing-px">40px</span><span class="spacing-rem">2.5rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:40px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">12</span><span class="spacing-px">48px</span><span class="spacing-rem">3rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:48px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">16</span><span class="spacing-px">64px</span><span class="spacing-rem">4rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:64px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">20</span><span class="spacing-px">80px</span><span class="spacing-rem">5rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:80px"></div></div>
+    </div>
+    <div class="spacing-row">
+      <div class="spacing-meta"><span class="spacing-token">24</span><span class="spacing-px">96px</span><span class="spacing-rem">6rem</span></div>
+      <div class="spacing-bar-wrap"><div class="spacing-bar" style="width:96px"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- RADIUS -->
+<section class="ds-section" id="radius">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Border Radius</h2>
+    <p class="ds-section-desc">Variable <code style="font-family:monospace">--radius: 0.5rem</code> comme base. Les variantes sont calculées par rapport à cette valeur.</p>
+  </div>
+  <div class="radius-grid">
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:0"></div>
+      <div class="radius-info"><span class="radius-name">none</span><span class="radius-val">0px</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:4px"></div>
+      <div class="radius-info"><span class="radius-name">sm</span><span class="radius-val">4px (--r - 4px)</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:6px"></div>
+      <div class="radius-info"><span class="radius-name">md</span><span class="radius-val">6px (--r - 2px)</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:8px"></div>
+      <div class="radius-info"><span class="radius-name">lg ⟵ base</span><span class="radius-val">8px (--r)</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:12px"></div>
+      <div class="radius-info"><span class="radius-name">xl</span><span class="radius-val">12px (0.75rem)</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:16px"></div>
+      <div class="radius-info"><span class="radius-name">2xl</span><span class="radius-val">16px (1rem)</span></div>
+    </div>
+    <div class="radius-item">
+      <div class="radius-box" style="border-radius:9999px; width:60px; height:32px"></div>
+      <div class="radius-info"><span class="radius-name">full</span><span class="radius-val">9999px</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- SHADOWS -->
+<section class="ds-section" id="shadows">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Ombres</h2>
+    <p class="ds-section-desc">Deux ombres brand personnalisées plus l'échelle Tailwind standard.</p>
+  </div>
+  <div class="shadow-grid">
+    <div class="shadow-item" style="box-shadow:var(--shadow-sm)">
+      <span class="shadow-name">shadow-sm</span>
+      <span class="shadow-val">0 1px 2px rgba(0,0,0,.05)</span>
+    </div>
+    <div class="shadow-item" style="box-shadow:var(--shadow-md)">
+      <span class="shadow-name">shadow-md</span>
+      <span class="shadow-val">0 4px 6px -1px rgba(0,0,0,.1)</span>
+    </div>
+    <div class="shadow-item" style="box-shadow:var(--shadow-lg)">
+      <span class="shadow-name">shadow-lg</span>
+      <span class="shadow-val">0 10px 15px -3px rgba(0,0,0,.1)</span>
+    </div>
+    <div class="shadow-item" style="box-shadow:0 20px 25px -5px rgba(0,0,0,.1)">
+      <span class="shadow-name">shadow-xl</span>
+      <span class="shadow-val">0 20px 25px -5px rgba(0,0,0,.1)</span>
+    </div>
+    <div class="shadow-item" style="box-shadow:var(--shadow-card); border:2px solid hsl(0,75%,45%,.3)">
+      <div style="font-size:.65rem;font-weight:700;color:var(--citsa-red-hex);letter-spacing:.08em;text-transform:uppercase">Brand</div>
+      <span class="shadow-name">shadow-card</span>
+      <span class="shadow-val">0 4px 24px -4px rgba(0,0,0,.08)</span>
+    </div>
+    <div class="shadow-item" style="box-shadow:var(--shadow-elevated); border:2px solid hsl(0,75%,45%,.3)">
+      <div style="font-size:.65rem;font-weight:700;color:var(--citsa-red-hex);letter-spacing:.08em;text-transform:uppercase">Brand</div>
+      <span class="shadow-name">shadow-elevated</span>
+      <span class="shadow-val">0 12px 40px -8px rgba(0,0,0,.15)</span>
+    </div>
+  </div>
+</section>
+
+<!-- BUTTONS -->
+<section class="ds-section" id="buttons">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Composants</div>
+    <h2 class="ds-section-title">Boutons</h2>
+    <p class="ds-section-desc">Transition default : 0.15s cubic-bezier(0.4, 0, 0.2, 1) sur toutes les propriétés visuelles.</p>
+  </div>
+
+  <div class="comp-subsection">
+    <div class="comp-subsection-title">Variants</div>
+    <div class="comp-row">
+      <button class="btn btn-primary">Primary</button>
+      <button class="btn btn-accent">Accent / CITSA Red</button>
+      <button class="btn btn-secondary">Secondary</button>
+      <button class="btn btn-outline">Outline</button>
+      <button class="btn btn-ghost">Ghost</button>
+      <button class="btn btn-destructive">Destructive</button>
+    </div>
+  </div>
+
+  <div class="comp-subsection">
+    <div class="comp-subsection-title">Tailles</div>
+    <div class="comp-row">
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary">Default</button>
+      <button class="btn btn-primary btn-lg">Large</button>
+    </div>
+  </div>
+
+  <div class="comp-subsection">
+    <div class="comp-subsection-title">États</div>
+    <div class="comp-row">
+      <button class="btn btn-primary" style="opacity:.5;pointer-events:none">Disabled</button>
+      <button class="btn btn-accent" style="opacity:.5;pointer-events:none">Disabled</button>
+      <button class="btn btn-outline" style="outline:2px solid var(--citsa-red-hex);outline-offset:2px">Focus</button>
+    </div>
+  </div>
+</section>
+
+<!-- BADGES -->
+<section class="ds-section" id="badges">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Composants</div>
+    <h2 class="ds-section-title">Badges & Pills</h2>
+  </div>
+  <div class="comp-row">
+    <span class="badge badge-default">Default</span>
+    <span class="badge badge-accent">CITSA Red</span>
+    <span class="badge badge-secondary">Secondary</span>
+    <span class="badge badge-muted">Muted</span>
+    <span class="badge badge-outline">Outline</span>
+    <span class="badge badge-success">Verified</span>
+    <span class="badge badge-warning">Pending</span>
+    <span class="badge badge-destructive">Error</span>
+  </div>
+</section>
+
+<!-- FORMS -->
+<section class="ds-section" id="forms">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Composants</div>
+    <h2 class="ds-section-title">Formulaires</h2>
+    <p class="ds-section-desc">Border: 1px solid hsl(0,0%,88%). Focus ring: CITSA Red avec 0.15s transition. Height: 2.5rem (40px).</p>
+  </div>
+  <div class="input-row">
+    <div class="input-field">
+      <label class="input-label">Nom complet <span class="req">*</span></label>
+      <input type="text" placeholder="Jean Dupont">
+    </div>
+    <div class="input-field">
+      <label class="input-label">Adresse email</label>
+      <input type="email" placeholder="jean@example.com">
+      <span class="input-hint">Utilisée pour les confirmations de consultation.</span>
+    </div>
+    <div class="input-field">
+      <label class="input-label">Mot de passe</label>
+      <input type="password" placeholder="••••••••" class="error">
+      <span class="input-error-msg">Le mot de passe doit contenir au moins 8 caractères.</span>
+    </div>
+    <div class="input-field">
+      <label class="input-label">Message</label>
+      <textarea placeholder="Décrivez votre demande..."></textarea>
+    </div>
+  </div>
+</section>
+
+<!-- CARDS -->
+<section class="ds-section" id="cards">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Composants</div>
+    <h2 class="ds-section-title">Cartes</h2>
+    <p class="ds-section-desc">border-radius: 0.75rem, shadow-card au repos, shadow-elevated au survol. Transition 0.2s.</p>
+  </div>
+  <div class="card-grid">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Consultation sécurisée</div>
+        <div class="card-subtitle">Portail CITSA International</div>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Accédez aux enseignements authentiques et réservez votre consultation privée avec le Maître.</p>
+      </div>
+      <div class="card-footer">
+        <span class="badge badge-success">Vérifié</span>
+        <button class="btn btn-accent btn-sm">Accéder</button>
+      </div>
+    </div>
+    <div class="card card-featured">
+      <div class="card-header">
+        <div class="card-title" style="font-family:var(--font-serif)">Portail Officiel</div>
+        <div class="card-subtitle">Accès prioritaire</div>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Ce portail est le seul canal officiel. Liens vérifiés, enseignements authentiques.</p>
+      </div>
+      <div class="card-footer">
+        <span class="badge" style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2)">Sécurisé</span>
+        <button class="btn" style="background:var(--citsa-red-hex);color:white;padding:.4rem .875rem;border-radius:6px;font-size:.8rem">Connexion</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Liens Vérifiés</div>
+        <div class="card-subtitle">Authentification officielle</div>
+      </div>
+      <div class="card-body">
+        <p class="card-text">Tous les liens affichés sur ce portail ont été soumis à une vérification de sécurité approfondie.</p>
+      </div>
+      <div class="card-footer">
+        <span class="badge badge-muted">Documentation</span>
+        <button class="btn btn-outline btn-sm">En savoir plus</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ALERTS -->
+<section class="ds-section" id="alerts">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Composants</div>
+    <h2 class="ds-section-title">Alertes</h2>
+  </div>
+  <div class="alert-list">
+    <div class="alert alert-default">
+      <svg class="alert-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div class="alert-content"><strong>Information</strong>Ceci est une alerte informative par défaut.</div>
+    </div>
+    <div class="alert alert-success">
+      <svg class="alert-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+      <div class="alert-content"><strong>Succès</strong>Votre consultation a été confirmée avec succès.</div>
+    </div>
+    <div class="alert alert-warning">
+      <svg class="alert-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="alert-content"><strong>Avertissement</strong>Votre session expire dans 15 minutes.</div>
+    </div>
+    <div class="alert alert-destructive">
+      <svg class="alert-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      <div class="alert-content"><strong>Erreur</strong>Impossible de se connecter. Vérifiez vos identifiants.</div>
+    </div>
+  </div>
+</section>
+
+<!-- MOTION -->
+<section class="ds-section" id="motion">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Fondations</div>
+    <h2 class="ds-section-title">Animations & Transitions</h2>
+    <p class="ds-section-desc">Passez la souris sur une carte pour voir l'animation. Durée par défaut : 150ms. Easing : cubic-bezier(0.4, 0, 0.2, 1).</p>
+  </div>
+  <div class="motion-grid">
+    <div class="motion-card">
+      <div class="motion-label">Fade In</div>
+      <div class="motion-desc">Opacité 0 → 1 · 150ms</div>
+      <div class="motion-demo motion-demo-fade"></div>
+    </div>
+    <div class="motion-card">
+      <div class="motion-label">Slide In</div>
+      <div class="motion-desc">Translate X -8px → 0 · 300ms</div>
+      <div class="motion-demo motion-demo-slide"></div>
+    </div>
+    <div class="motion-card">
+      <div class="motion-label">Zoom In</div>
+      <div class="motion-desc">Scale 0.9 → 1 · 200ms</div>
+      <div class="motion-demo motion-demo-zoom"></div>
+    </div>
+    <div class="motion-card">
+      <div class="motion-label">Pulse</div>
+      <div class="motion-desc">Opacité 1 → 0.5 · 2s ∞</div>
+      <div class="motion-demo motion-demo-pulse"></div>
+    </div>
+    <div class="motion-card">
+      <div class="motion-label">Accordion</div>
+      <div class="motion-desc">height: 0 ↔ content · 200ms ease-out</div>
+      <div style="font-family:monospace;font-size:.72rem;color:var(--muted-fg);margin-top:.5rem">accordion-up / accordion-down</div>
+    </div>
+    <div class="motion-card">
+      <div class="motion-label">Transitions</div>
+      <div class="motion-desc">Colors, transform, shadow, opacity</div>
+      <div style="font-family:monospace;font-size:.72rem;color:var(--muted-fg);margin-top:.5rem">.transition · .transition-colors · .transition-transform · .transition-opacity</div>
+    </div>
+  </div>
+</section>
+
+<!-- GRADIENTS -->
+<section class="ds-section" id="gradients">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Visuels</div>
+    <h2 class="ds-section-title">Dégradés</h2>
+  </div>
+  <div class="gradient-grid">
+    <div class="gradient-card" style="background:linear-gradient(135deg,hsl(0,75%,45%),hsl(0,80%,35%))">CITSA Red Gradient</div>
+    <div class="gradient-card" style="background:linear-gradient(to right,rgba(0,0,0,.9),rgba(0,0,0,.7),rgba(0,0,0,.2))">Hero Overlay</div>
+    <div class="gradient-card" style="background:linear-gradient(135deg,#141414 0%,#2a1010 100%)">Black → Red Tint</div>
+    <div class="gradient-card" style="background:linear-gradient(to bottom,#F9F7F6,#ECEBEA);color:#141414">Cream to Warm Gray</div>
+    <div class="gradient-card" style="background:radial-gradient(ellipse 80% 60% at 70% 50%,hsl(0,75%,45%,.25),transparent 70%),#141414">Hero BG Accent</div>
+    <div class="gradient-card" style="background:linear-gradient(135deg,hsl(0,84%,60%),hsl(0,80%,35%))">Destructive</div>
+  </div>
+</section>
+
+<!-- BREAKPOINTS -->
+<section class="ds-section" id="breakpoints">
+  <div class="ds-section-header">
+    <div class="ds-section-label">Responsive</div>
+    <h2 class="ds-section-title">Breakpoints</h2>
+    <p class="ds-section-desc">Container max-width : 1400px à partir de ≥1400px. Padding horizontal : 2rem (32px).</p>
+  </div>
+  <table class="breakpoints-table">
+    <thead>
+      <tr>
+        <th>Préfixe</th>
+        <th>Min-width</th>
+        <th>Description</th>
+        <th>Usages clés</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>— (base)</td>
+        <td>0px</td>
+        <td>Mobile portrait</td>
+        <td>Mise en page colonne, stack, px-4 py-12</td>
+      </tr>
+      <tr>
+        <td>sm:</td>
+        <td>640px</td>
+        <td>Mobile paysage / petite tablette</td>
+        <td>flex-row, justify-end, max-w-sm</td>
+      </tr>
+      <tr>
+        <td>md:</td>
+        <td>768px</td>
+        <td>Tablette</td>
+        <td>text-5xl, py-16 / py-28, flex items-center, px-8</td>
+      </tr>
+      <tr>
+        <td>lg:</td>
+        <td>1024px</td>
+        <td>Desktop</td>
+        <td>grid-cols-4, text-6xl</td>
+      </tr>
+      <tr>
+        <td>container</td>
+        <td>≥1400px</td>
+        <td>Large desktop</td>
+        <td>max-width: 1400px, mx-auto, px-8</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- FOOTER -->
+<footer class="ds-footer">
+  <div>Design System généré depuis le CSS source de <strong>citsainternational.com</strong></div>
+  <div>Stack: TailwindCSS · ShadCN/UI · Lovable · React</div>
+</footer>
+
+</div>
+</body>
+</html>

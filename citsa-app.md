@@ -1,0 +1,1529 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CITSA Occulte School International</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --citsa-black: #141414;
+  --citsa-black-soft: #1e1e1e;
+  --citsa-red: hsl(0,75%,45%);
+  --citsa-red-hex: #C91D1D;
+  --citsa-red-light: hsl(0,70%,55%);
+  --citsa-red-dark: hsl(0,80%,35%);
+  --cream: #F9F7F6;
+  --warm-gray: #ECEBEA;
+  --background: #FFFFFF;
+  --foreground: #141414;
+  --secondary: #F5F5F5;
+  --muted: #F2F2F2;
+  --muted-fg: #666666;
+  --border: #E0E0E0;
+  --success: hsl(142,70%,35%);
+  --warning: hsl(38,90%,50%);
+  --destructive: hsl(0,84%,60%);
+
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-card: 0 4px 24px -4px rgba(0,0,0,.08);
+  --shadow-elevated: 0 12px 40px -8px rgba(0,0,0,.15);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.6;
+  font-size: 16px;
+  min-height: 100vh;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(20,20,20,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: white;
+}
+.navbar-logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--citsa-red), var(--citsa-red-dark));
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+.navbar-logo-text {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.navbar-logo-text span {
+  color: var(--citsa-red-light);
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+}
+.btn-accent {
+  background: var(--citsa-red-hex);
+  color: white;
+}
+.btn-accent:hover { background: var(--citsa-red-light); }
+.btn-primary {
+  background: var(--citsa-black);
+  color: white;
+}
+.btn-primary:hover { background: #2a2a2a; }
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--muted); }
+.btn-outline {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover { background: var(--muted); }
+.btn-ghost {
+  background: transparent;
+  color: white;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.1); }
+.btn-sm { padding: 0.4rem 0.875rem; font-size: 0.8rem; }
+.btn-lg { padding: 0.75rem 1.75rem; font-size: 1rem; }
+
+.hero {
+  min-height: 100vh;
+  background: var(--citsa-black);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 6rem 2rem 4rem;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: url('mp0z46l3-mask.jpg') center center / cover no-repeat;
+  opacity: 1;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to bottom, rgba(20,20,20,0.15) 0%, rgba(20,20,20,0.3) 50%, rgba(20,20,20,0.75) 100%),
+    radial-gradient(ellipse 80% 60% at 70% 40%, hsla(0,75%,45%,0.15), transparent 60%);
+  z-index: 1;
+}
+.hero-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30Z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 60px 60px;
+  z-index: 2;
+}
+.hero-content {
+  position: relative;
+  z-index: 3;
+  max-width: 900px;
+  text-align: center;
+}
+.hero-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--citsa-red-light);
+  margin-bottom: 1.5rem;
+}
+.hero-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-weight: 600;
+  line-height: 1.1;
+  margin-bottom: 2rem;
+  letter-spacing: -0.02em;
+}
+.hero-title em {
+  font-style: italic;
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.7em;
+  color: rgba(255,255,255,0.6);
+  font-weight: 400;
+}
+.hero-quote {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+  max-width: 600px;
+  margin: 0 auto 3rem;
+  line-height: 1.7;
+}
+.hero-quote::before { content: '"'; }
+.hero-quote::after { content: '"'; }
+.hero-cta {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.section {
+  padding: 5rem 2rem;
+}
+.section-dark {
+  background: var(--cream);
+}
+.section-header {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto 3rem;
+}
+.section-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--citsa-red-hex);
+  margin-bottom: 0.75rem;
+}
+.section-title {
+  font-family: var(--font-serif);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 600;
+  color: var(--foreground);
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+.section-desc {
+  font-size: 1rem;
+  color: var(--muted-fg);
+}
+
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid var(--border);
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 640px) {
+  .form-grid { grid-template-columns: 1fr; }
+}
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.form-field.full { grid-column: 1 / -1; }
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+.form-label .req { color: var(--citsa-red-hex); }
+input, select, textarea {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  background: white;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.875rem;
+  height: 2.5rem;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+input::placeholder, textarea::placeholder { color: #9ca3af; }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--citsa-red-hex);
+  box-shadow: 0 0 0 2px rgba(201,29,29,0.15);
+}
+textarea {
+  height: auto;
+  min-height: 100px;
+  resize: vertical;
+}
+.form-actions {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.footer {
+  background: var(--citsa-black);
+  color: white;
+  padding: 4rem 2rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--citsa-red), transparent);
+}
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 3rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.footer-brand {
+  max-width: 300px;
+}
+.footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.footer-logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--citsa-red), var(--citsa-red-dark));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.footer-logo-text {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.footer-tagline {
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.6;
+}
+.footer-links {
+  display: flex;
+  gap: 4rem;
+}
+.footer-col h4 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 1rem;
+}
+.footer-col a {
+  display: block;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  padding: 0.35rem 0;
+  transition: color 0.15s;
+}
+.footer-col a:hover { color: white; }
+.footer-bottom {
+  padding-top: 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.4);
+}
+
+.login-page {
+  min-height: 100vh;
+  background: var(--citsa-black);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.login-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 100% 100% at 50% 100%, hsla(0,75%,45%,0.12), transparent 50%),
+    radial-gradient(circle at 20% 30%, hsla(30,40%,25%,0.15), transparent 40%);
+}
+.login-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='40' cy='40' r='30' fill='none' stroke='white' stroke-width='1'/%3E%3Ccircle cx='40' cy='40' r='15' fill='none' stroke='white' stroke-width='1'/%3E%3Cline x1='40' y1='0' x2='40' y2='80' stroke='white' stroke-width='0.5'/%3E%3Cline x1='0' y1='40' x2='80' y2='40' stroke='white' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size: 80px 80px;
+}
+.login-card {
+  position: relative;
+  background: rgba(30,30,30,0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius-2xl);
+  padding: 3rem 2.5rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow-elevated);
+}
+.login-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.login-logo {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, var(--citsa-red), var(--citsa-red-dark));
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: white;
+  margin: 0 auto 1.25rem;
+}
+.login-title {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 0.5rem;
+}
+.login-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.5);
+}
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.login-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 0.4rem;
+}
+.login-field input {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+  color: white;
+}
+.login-field input::placeholder { color: rgba(255,255,255,0.3); }
+.login-field input:focus {
+  border-color: var(--citsa-red);
+  background: rgba(255,255,255,0.08);
+}
+.password-wrapper {
+  position: relative;
+}
+.password-toggle {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.password-toggle:hover { color: rgba(255,255,255,0.7); }
+.login-options {
+  display: flex;
+  justify-content: flex-end;
+}
+.login-link {
+  font-size: 0.8rem;
+  color: var(--citsa-red-light);
+  text-decoration: none;
+}
+.login-link:hover { text-decoration: underline; }
+.login-submit {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.login-back {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+.login-back a {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+}
+.login-back a:hover { color: white; }
+
+.dashboard {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 260px;
+  background: var(--citsa-black);
+  color: white;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
+}
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 1.5rem;
+}
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--citsa-red), var(--citsa-red-dark));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.sidebar-title {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.sidebar-nav {
+  flex: 1;
+}
+.nav-section {
+  margin-bottom: 1.5rem;
+}
+.nav-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  padding: 0.5rem 0.75rem;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.nav-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: white;
+}
+.nav-item.active {
+  background: rgba(201,29,29,0.15);
+  color: var(--citsa-red-light);
+}
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+.nav-badge {
+  margin-left: auto;
+  background: var(--citsa-red-hex);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-full);
+}
+.sidebar-footer {
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+.user-avatar {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--citsa-red-light), var(--citsa-red));
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.user-details {
+  flex: 1;
+  min-width: 0;
+}
+.user-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-role {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.5);
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 260px;
+  background: var(--secondary);
+  min-height: 100vh;
+}
+.content-header {
+  background: white;
+  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.content-title {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+.content-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.content-body {
+  padding: 2rem;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+@media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
+.kpi-card {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+}
+.kpi-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  margin-bottom: 0.5rem;
+}
+.kpi-value {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1;
+}
+.kpi-change {
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.kpi-change.positive { color: var(--success); }
+.kpi-change.negative { color: var(--destructive); }
+
+.card {
+  background: white;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.card-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.card-body {
+  padding: 1.5rem;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-fg);
+  background: var(--secondary);
+  border-bottom: 1px solid var(--border);
+}
+.data-table td {
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover { background: var(--muted); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+}
+.badge-success { background: hsla(142,70%,35%,0.12); color: hsl(142,70%,30%); }
+.badge-warning { background: hsla(38,90%,50%,0.15); color: hsl(38,70%,30%); }
+.badge-destructive { background: hsla(0,84%,60%,0.12); color: hsl(0,84%,40%); }
+.badge-muted { background: var(--muted); color: var(--muted-fg); }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+}
+.activity-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.activity-icon.red { background: hsla(0,75%,45%,0.12); color: var(--citsa-red-hex); }
+.activity-icon.green { background: hsla(142,70%,35%,0.12); color: var(--success); }
+.activity-icon.blue { background: hsla(220,70%,50%,0.12); color: hsl(220,70%,50%); }
+.activity-content { flex: 1; }
+.activity-title { font-size: 0.875rem; font-weight: 500; }
+.activity-meta { font-size: 0.75rem; color: var(--muted-fg); margin-top: 0.25rem; }
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: hsla(0,84%,60%,0.12);
+  color: var(--destructive);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--destructive);
+  border-radius: 50%;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.notification-badge {
+  position: relative;
+}
+.notification-badge::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--citsa-red-hex);
+  border-radius: 50%;
+  border: 2px solid var(--citsa-black);
+}
+
+.chat-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.chat-preview:hover { background: var(--muted); }
+.chat-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--citsa-red-light), var(--citsa-red));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+.chat-info { flex: 1; min-width: 0; }
+.chat-name { font-size: 0.875rem; font-weight: 600; }
+.chat-last { font-size: 0.8rem; color: var(--muted-fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-meta { text-align: right; }
+.chat-time { font-size: 0.7rem; color: var(--muted-fg); }
+.chat-unread {
+  background: var(--citsa-red-hex);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-full);
+  margin-top: 0.25rem;
+  display: inline-block;
+}
+
+.video-placeholder {
+  background: var(--citsa-black);
+  border-radius: var(--radius-xl);
+  aspect-ratio: 16/9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  position: relative;
+  overflow: hidden;
+}
+.video-placeholder::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, hsla(0,75%,45%,0.15), transparent 60%);
+}
+.video-play {
+  width: 80px;
+  height: 80px;
+  background: var(--citsa-red-hex);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+.video-play:hover {
+  transform: scale(1.05);
+  background: var(--citsa-red-light);
+}
+.video-play svg {
+  width: 32px;
+  height: 32px;
+  margin-left: 4px;
+}
+.video-label {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: rgba(255,255,255,0.6);
+  position: relative;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--muted);
+  padding: 0.25rem;
+  border-radius: var(--radius-lg);
+  width: fit-content;
+}
+.tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted-fg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+  background: transparent;
+}
+.tab:hover { color: var(--foreground); }
+.tab.active {
+  background: white;
+  color: var(--foreground);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.library-item {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.library-item:hover {
+  border-color: var(--citsa-red);
+  box-shadow: var(--shadow-card);
+}
+.library-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--muted);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.75rem;
+  font-size: 1.25rem;
+}
+.library-icon.pdf { background: hsla(0,70%,50%,0.12); color: hsl(0,70%,45%); }
+.library-icon.video { background: hsla(280,70%,50%,0.12); color: hsl(280,70%,45%); }
+.library-icon.audio { background: hsla(200,70%,50%,0.12); color: hsl(200,70%,45%); }
+.library-icon.ppt { background: hsla(25,90%,50%,0.12); color: hsl(25,90%,40%); }
+.library-name { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+.library-meta { font-size: 0.7rem; color: var(--muted-fg); }
+
+.sub-view { display: none; }
+.sub-view.active { display: block; }
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.text-muted { color: var(--muted-fg); }
+.text-sm { font-size: 0.875rem; }
+</style>
+</head>
+<body>
+
+<div id="landing" class="view active">
+  <nav class="navbar">
+    <a href="#" class="navbar-logo" onclick="showView('landing'); return false;">
+      <div class="navbar-logo-icon">C</div>
+      <div class="navbar-logo-text">CITSA <span>International</span></div>
+    </a>
+    <button class="btn btn-ghost" onclick="showView('login')">Connexion</button>
+  </nav>
+
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-pattern"></div>
+    <div class="hero-content">
+      <div class="hero-eyebrow">École Mystico Négro-Africaine</div>
+      <h1 class="hero-title">
+        CITSA Occulte School International
+        <em>La sagesse ancestrale au service de l'éveil spirituel</em>
+      </h1>
+      <p class="hero-quote">
+        Celui qui cherche la lumière dans l'obscurité trouvera le chemin vers la connaissance éternelle. La sagesse des ancêtres est un héritage qui transcende le temps.
+      </p>
+      <div class="hero-cta">
+        <a href="#admission" class="btn btn-accent btn-lg">Demander une admission</a>
+        <button class="btn btn-ghost btn-lg" onclick="showView('login')">Espace membre</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-dark" id="admission">
+    <div class="section-header">
+      <div class="section-eyebrow">Rejoignez-nous</div>
+      <h2 class="section-title">Demande d'Admission</h2>
+      <p class="section-desc">Remplissez le formulaire ci-dessous pour soumettre votre candidature.</p>
+    </div>
+    <div class="form-container">
+      <form onsubmit="event.preventDefault(); alert('Votre demande a été soumise avec succès.');">
+        <div class="form-grid">
+          <div class="form-field">
+            <label class="form-label">Nom <span class="req">*</span></label>
+            <input type="text" placeholder="Votre nom" required>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Prénoms <span class="req">*</span></label>
+            <input type="text" placeholder="Vos prénoms" required>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Date de naissance <span class="req">*</span></label>
+            <input type="date" required>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Pays de résidence <span class="req">*</span></label>
+            <select required>
+              <option value="">Sélectionnez</option>
+              <option>Bénin</option><option>Cameroun</option><option>Côte d'Ivoire</option><option>France</option><option>Sénégal</option><option>Autre</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Situation matrimoniale</label>
+            <select>
+              <option value="">Sélectionnez</option>
+              <option>Célibataire</option><option>Marié(e)</option><option>Divorcé(e)</option><option>Veuf/Veuve</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label class="form-label">Profession</label>
+            <input type="text" placeholder="Votre profession">
+          </div>
+          <div class="form-field full">
+            <label class="form-label">Motivation <span class="req">*</span></label>
+            <textarea placeholder="Pourquoi souhaitez-vous rejoindre CITSA ?" required></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-accent btn-lg">Soumettre ma demande</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <div class="footer-logo">
+            <div class="footer-logo-icon">C</div>
+            <div class="footer-logo-text">CITSA International</div>
+          </div>
+          <p class="footer-tagline">École dédiée à la transmission de la sagesse ancestrale africaine.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h4>Navigation</h4>
+            <a href="#" onclick="showView('landing'); return false;">Accueil</a>
+            <a href="#admission">Admission</a>
+            <a href="#" onclick="showView('login'); return false;">Connexion</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2024 CITSA. Tous droits réservés.</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<div id="login" class="view">
+  <div class="login-page">
+    <div class="login-pattern"></div>
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo">C</div>
+        <h1 class="login-title">Connexion</h1>
+        <p class="login-subtitle">Accédez à votre espace personnel</p>
+      </div>
+      <form class="login-form" onsubmit="event.preventDefault(); handleLogin();">
+        <div class="login-field">
+          <label>Nom d'utilisateur</label>
+          <input type="text" id="login-username" placeholder="Entrez votre identifiant" required>
+        </div>
+        <div class="login-field">
+          <label>Mot de passe</label>
+          <div class="password-wrapper">
+            <input type="password" id="login-password" placeholder="Entrez votre mot de passe" required>
+            <button type="button" class="password-toggle" onclick="togglePassword()">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="login-options">
+          <a href="#" class="login-link">Mot de passe oublié ?</a>
+        </div>
+        <button type="submit" class="btn btn-accent btn-lg login-submit">Se connecter</button>
+      </form>
+      <div class="login-back">
+        <a href="#" onclick="showView('landing'); return false;">← Retour à l'accueil</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="admin" class="view">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">C</div>
+        <div class="sidebar-title">CITSA Admin</div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Principal</div>
+          <a class="nav-item active" onclick="showAdminView('overview')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Vue d'ensemble
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Gestion</div>
+          <a class="nav-item" onclick="showAdminView('students')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            Étudiants <span class="nav-badge">24</span>
+          </a>
+          <a class="nav-item" onclick="showAdminView('teachers')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            Professeurs <span class="nav-badge">6</span>
+          </a>
+          <a class="nav-item" onclick="showAdminView('classes')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            Classes <span class="nav-badge">4</span>
+          </a>
+          <a class="nav-item" onclick="showAdminView('libraries')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Bibliothèques
+          </a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Communication</div>
+          <a class="nav-item" onclick="showAdminView('broadcast')">
+            <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            Broadcast Live
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar">MA</div>
+          <div class="user-details">
+            <div class="user-name">Maître Admin</div>
+            <div class="user-role">Administrateur</div>
+          </div>
+        </div>
+        <a class="nav-item mt-1" onclick="showView('landing')">
+          <svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Déconnexion
+        </a>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div id="admin-overview" class="sub-view active">
+        <header class="content-header">
+          <h1 class="content-title">Vue d'ensemble</h1>
+          <div class="content-actions">
+            <button class="btn btn-accent" onclick="showAdminView('broadcast')">Lancer un broadcast</button>
+          </div>
+        </header>
+        <div class="content-body">
+          <div class="kpi-grid">
+            <div class="kpi-card"><div class="kpi-label">Étudiants</div><div class="kpi-value">24</div><div class="kpi-change positive">↑ +3 ce mois</div></div>
+            <div class="kpi-card"><div class="kpi-label">Professeurs</div><div class="kpi-value">6</div><div class="kpi-change positive">↑ +1</div></div>
+            <div class="kpi-card"><div class="kpi-label">Classes</div><div class="kpi-value">4</div><div class="kpi-change">— stable</div></div>
+            <div class="kpi-card"><div class="kpi-label">Bibliothèques</div><div class="kpi-value">12</div><div class="kpi-change positive">↑ +2</div></div>
+          </div>
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Activité récente</h3></div>
+              <div class="card-body">
+                <div class="activity-list">
+                  <div class="activity-item"><div class="activity-icon green">👤</div><div class="activity-content"><div class="activity-title">Nouvel étudiant inscrit</div><div class="activity-meta">Kouamé Aya · Il y a 2h</div></div></div>
+                  <div class="activity-item"><div class="activity-icon red">🎬</div><div class="activity-content"><div class="activity-title">Live terminé</div><div class="activity-meta">Prof. Diallo · Il y a 5h</div></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Dernières admissions</h3></div>
+              <div class="card-body" style="padding:0">
+                <table class="data-table">
+                  <thead><tr><th>Nom</th><th>Statut</th></tr></thead>
+                  <tbody>
+                    <tr><td>Kouamé Aya</td><td><span class="badge badge-warning">En attente</span></td></tr>
+                    <tr><td>Ouattara Moussa</td><td><span class="badge badge-success">Validé</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-students" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Gestion des Étudiants</h1><div class="content-actions"><button class="btn btn-accent">+ Créer un compte</button></div></header>
+        <div class="content-body">
+          <div class="card">
+            <div class="card-body" style="padding:0">
+              <table class="data-table">
+                <thead><tr><th>Nom</th><th>Username</th><th>Statut</th><th>Actions</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Kouamé Aya</strong></td><td><code style="font-size:0.75rem;background:var(--muted);padding:0.15rem 0.4rem;border-radius:4px">aya.kouame</code></td><td><span class="badge badge-success">Actif</span></td><td><button class="btn btn-outline btn-sm">Modifier</button></td></tr>
+                  <tr><td><strong>Ouattara Moussa</strong></td><td><code style="font-size:0.75rem;background:var(--muted);padding:0.15rem 0.4rem;border-radius:4px">moussa.o</code></td><td><span class="badge badge-success">Actif</span></td><td><button class="btn btn-outline btn-sm">Modifier</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-teachers" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Gestion des Professeurs</h1><div class="content-actions"><button class="btn btn-accent">+ Créer un compte</button></div></header>
+        <div class="content-body">
+          <div class="card">
+            <div class="card-body" style="padding:0">
+              <table class="data-table">
+                <thead><tr><th>Nom</th><th>Classes</th><th>Statut</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Prof. Diallo</strong></td><td>Initiation Niv.1, Niv.2</td><td><span class="badge badge-success">Actif</span></td></tr>
+                  <tr><td><strong>Prof. Sanogo</strong></td><td>Avancé</td><td><span class="badge badge-success">Actif</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-classes" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Gestion des Classes</h1><div class="content-actions"><button class="btn btn-accent">+ Créer une classe</button></div></header>
+        <div class="content-body">
+          <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.1rem;margin-bottom:0.5rem">Initiation Niveau 1</h4><p class="text-sm text-muted">8 étudiants · 2 profs</p></div></div>
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.1rem;margin-bottom:0.5rem">Initiation Niveau 2</h4><p class="text-sm text-muted">6 étudiants · 1 prof</p></div></div>
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.1rem;margin-bottom:0.5rem">Avancé</h4><p class="text-sm text-muted">5 étudiants · 2 profs</p></div></div>
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.1rem;margin-bottom:0.5rem">Maîtrise</h4><p class="text-sm text-muted">3 étudiants · 1 prof</p></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-libraries" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Bibliothèques</h1><div class="content-actions"><button class="btn btn-accent">+ Créer</button></div></header>
+        <div class="content-body">
+          <div class="library-grid">
+            <div class="library-item"><div class="library-icon pdf">📄</div><div class="library-name">Introduction.pdf</div><div class="library-meta">2.4 MB</div></div>
+            <div class="library-item"><div class="library-icon video">🎬</div><div class="library-name">Cours_01.mp4</div><div class="library-meta">124 MB</div></div>
+            <div class="library-item"><div class="library-icon audio">🎵</div><div class="library-name">Meditation.mp3</div><div class="library-meta">8.2 MB</div></div>
+          </div>
+        </div>
+      </div>
+      <div id="admin-broadcast" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Broadcasting Live</h1></header>
+        <div class="content-body">
+          <div class="card">
+            <div class="card-body" style="padding:2rem">
+              <div class="video-placeholder"><div class="video-play"><svg fill="white" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="video-label">Cliquez pour démarrer</div></div>
+              <div style="text-align:center;margin-top:2rem"><button class="btn btn-accent btn-lg"><span class="live-dot" style="margin-right:0.5rem"></span>Lancer le broadcast global</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="teacher" class="view">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo">C</div><div class="sidebar-title">Espace Professeur</div></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Enseignement</div>
+          <a class="nav-item active" onclick="showTeacherView('classes')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Mes Classes</a>
+          <a class="nav-item" onclick="showTeacherView('live')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>Cours Live</a>
+          <a class="nav-item" onclick="showTeacherView('exercises')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Exercices</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Communication</div>
+          <a class="nav-item" onclick="showTeacherView('chat')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Messagerie<span class="nav-badge">3</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><div class="user-avatar">AD</div><div class="user-details"><div class="user-name">Prof. Diallo</div><div class="user-role">Professeur</div></div></div>
+        <a class="nav-item mt-1" onclick="showView('landing')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Déconnexion</a>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div id="teacher-classes" class="sub-view active">
+        <header class="content-header"><h1 class="content-title">Mes Classes</h1></header>
+        <div class="content-body">
+          <div class="grid-2">
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.25rem;margin-bottom:0.75rem">Initiation Niveau 1</h4><p class="text-sm text-muted mb-2">8 étudiants</p><button class="btn btn-accent btn-sm" onclick="showTeacherView('live')">Lancer un live</button></div></div>
+            <div class="card"><div class="card-body"><h4 style="font-family:var(--font-serif);font-size:1.25rem;margin-bottom:0.75rem">Initiation Niveau 2</h4><p class="text-sm text-muted mb-2">6 étudiants</p><button class="btn btn-accent btn-sm" onclick="showTeacherView('live')">Lancer un live</button></div></div>
+          </div>
+        </div>
+      </div>
+      <div id="teacher-live" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Cours en Live</h1></header>
+        <div class="content-body">
+          <div class="card"><div class="card-body">
+            <div class="video-placeholder" style="max-width:600px"><div class="video-play"><svg fill="white" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="video-label">Prévisualisation webcam</div></div>
+            <div style="margin-top:1.5rem"><button class="btn btn-accent btn-lg"><span class="live-dot" style="margin-right:0.5rem"></span>Démarrer le live</button></div>
+          </div></div>
+        </div>
+      </div>
+      <div id="teacher-exercises" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Exercices & Quiz</h1><div class="content-actions"><button class="btn btn-accent">+ Créer un Quiz</button></div></header>
+        <div class="content-body">
+          <div class="card"><div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Titre</th><th>Type</th><th>Soumissions</th></tr></thead>
+              <tbody>
+                <tr><td><strong>QCM — Rituels</strong></td><td><span class="badge badge-muted">QCM</span></td><td>6/8</td></tr>
+                <tr><td><strong>Exercice — Méditation</strong></td><td><span class="badge badge-muted">PDF</span></td><td>10/14</td></tr>
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+      </div>
+      <div id="teacher-chat" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Messagerie</h1></header>
+        <div class="content-body">
+          <div class="grid-2">
+            <div class="card"><div class="card-header"><h3 class="card-title">Conversations</h3></div><div class="card-body" style="padding:0.5rem">
+              <div class="chat-preview"><div class="chat-avatar">IN</div><div class="chat-info"><div class="chat-name">Initiation Niveau 1</div><div class="chat-last">Merci professeur...</div></div><div class="chat-meta"><div class="chat-time">14:32</div><div class="chat-unread">3</div></div></div>
+            </div></div>
+            <div class="card"><div class="card-header" style="background:var(--citsa-black);color:white"><h3 class="card-title" style="color:white">Chat</h3></div><div class="card-body" style="min-height:200px;background:var(--secondary)"></div><div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem"><input type="text" placeholder="Message..." style="flex:1"><button class="btn btn-accent">Envoyer</button></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="student" class="view">
+  <div class="dashboard">
+    <aside class="sidebar">
+      <div class="sidebar-header"><div class="sidebar-logo">C</div><div class="sidebar-title">Espace Étudiant</div></div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Apprentissage</div>
+          <a class="nav-item active" onclick="showStudentView('dashboard')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Tableau de bord<span class="nav-badge">2</span></a>
+          <a class="nav-item" onclick="showStudentView('live')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>Cours Live</a>
+          <a class="nav-item" onclick="showStudentView('exercises')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Exercices<span class="nav-badge">1</span></a>
+          <a class="nav-item" onclick="showStudentView('libraries')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Bibliothèques</a>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-title">Communication</div>
+          <a class="nav-item" onclick="showStudentView('chat')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Messagerie<span class="nav-badge">5</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info"><div class="user-avatar">KA</div><div class="user-details"><div class="user-name">Kouamé Aya</div><div class="user-role">Étudiant</div></div></div>
+        <a class="nav-item mt-1" onclick="showView('landing')"><svg class="nav-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Déconnexion</a>
+      </div>
+    </aside>
+    <main class="main-content">
+      <div id="student-dashboard" class="sub-view active">
+        <header class="content-header"><h1 class="content-title">Tableau de bord</h1></header>
+        <div class="content-body">
+          <div class="card mb-3" style="border-color:var(--citsa-red)">
+            <div class="card-body" style="display:flex;align-items:center;gap:1.5rem">
+              <div class="live-indicator" style="padding:0.5rem 1rem"><span class="live-dot"></span> EN DIRECT</div>
+              <div style="flex:1"><h4 style="font-weight:600">Méditation — Séance 3</h4><p class="text-sm text-muted">Prof. Diallo</p></div>
+              <button class="btn btn-accent" onclick="showStudentView('live')">Rejoindre</button>
+            </div>
+          </div>
+          <div class="grid-2">
+            <div class="card"><div class="card-header"><h3 class="card-title">Notifications</h3></div><div class="card-body">
+              <div class="activity-list">
+                <div class="activity-item"><div class="activity-icon red">🎬</div><div class="activity-content"><div class="activity-title">Live en cours</div><div class="activity-meta">Maintenant</div></div></div>
+                <div class="activity-item"><div class="activity-icon blue">📄</div><div class="activity-content"><div class="activity-title">Nouveau QCM</div><div class="activity-meta">Il y a 2h</div></div></div>
+              </div>
+            </div></div>
+            <div class="card"><div class="card-header"><h3 class="card-title">Mes Classes</h3></div><div class="card-body">
+              <div style="padding:1rem;background:var(--secondary);border-radius:var(--radius-lg);margin-bottom:0.75rem"><h4 style="font-weight:600">Initiation Niveau 1</h4><p class="text-sm text-muted">8 étudiants</p></div>
+              <div style="padding:1rem;background:var(--secondary);border-radius:var(--radius-lg)"><h4 style="font-weight:600">Initiation Niveau 2</h4><p class="text-sm text-muted">6 étudiants</p></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+      <div id="student-live" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Cours Live</h1></header>
+        <div class="content-body">
+          <div class="card"><div class="card-header" style="background:var(--citsa-black);color:white"><span class="live-indicator"><span class="live-dot"></span> EN DIRECT</span><h3 class="card-title" style="color:white;margin-left:1rem">Méditation — Séance 3</h3></div><div class="card-body" style="padding:0"><div class="video-placeholder" style="border-radius:0"><div class="video-play"><svg fill="white" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg></div></div></div></div>
+        </div>
+      </div>
+      <div id="student-exercises" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Exercices</h1></header>
+        <div class="content-body">
+          <div class="card"><div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Titre</th><th>Type</th><th>Date limite</th><th></th></tr></thead>
+              <tbody>
+                <tr style="background:hsla(0,75%,45%,0.03)"><td><strong>QCM — Rituels</strong></td><td><span class="badge badge-warning">À faire</span></td><td>15 Jan</td><td><button class="btn btn-accent btn-sm">Commencer</button></td></tr>
+                <tr><td><strong>Exercice — Méditation</strong></td><td><span class="badge badge-success">Complété</span></td><td>10 Jan</td><td><button class="btn btn-outline btn-sm">Voir</button></td></tr>
+              </tbody>
+            </table>
+          </div></div>
+        </div>
+      </div>
+      <div id="student-libraries" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Bibliothèques</h1></header>
+        <div class="content-body">
+          <div class="library-grid">
+            <div class="library-item"><div class="library-icon pdf">📄</div><div class="library-name">Introduction.pdf</div><div class="library-meta">2.4 MB</div></div>
+            <div class="library-item"><div class="library-icon video">🎬</div><div class="library-name">Cours_01.mp4</div><div class="library-meta">124 MB</div></div>
+            <div class="library-item"><div class="library-icon audio">🎵</div><div class="library-name">Meditation.mp3</div><div class="library-meta">8.2 MB</div></div>
+          </div>
+        </div>
+      </div>
+      <div id="student-chat" class="sub-view">
+        <header class="content-header"><h1 class="content-title">Messagerie</h1></header>
+        <div class="content-body">
+          <div class="grid-2">
+            <div class="card"><div class="card-header"><h3 class="card-title">Conversations</h3></div><div class="card-body" style="padding:0.5rem">
+              <div class="chat-preview" style="background:var(--muted)"><div class="chat-avatar">IN</div><div class="chat-info"><div class="chat-name">Initiation Niveau 1</div><div class="chat-last">Quelqu'un a compris ?</div></div><div class="chat-meta"><div class="chat-time">14:45</div><div class="chat-unread">5</div></div></div>
+              <div class="chat-preview"><div class="chat-avatar" style="background:#666">GE</div><div class="chat-info"><div class="chat-name">Chat Général</div><div class="chat-last">Bon courage !</div></div><div class="chat-meta"><div class="chat-time">Hier</div></div></div>
+            </div></div>
+            <div class="card"><div class="card-header" style="background:var(--citsa-black);color:white"><h3 class="card-title" style="color:white">Initiation Niveau 1</h3><span class="live-indicator"><span class="live-dot"></span> 8 en ligne</span></div><div class="card-body" style="min-height:200px;background:var(--secondary)"></div><div style="padding:1rem;border-top:1px solid var(--border);display:flex;gap:0.5rem"><input type="text" placeholder="Message..." style="flex:1"><button class="btn btn-accent">Envoyer</button></div></div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showAdminView(subViewId) {
+  document.querySelectorAll('#admin .sub-view').forEach(v => v.classList.remove('active'));
+  document.getElementById('admin-' + subViewId).classList.add('active');
+  document.querySelectorAll('#admin .nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+}
+function showTeacherView(subViewId) {
+  document.querySelectorAll('#teacher .sub-view').forEach(v => v.classList.remove('active'));
+  document.getElementById('teacher-' + subViewId).classList.add('active');
+  document.querySelectorAll('#teacher .nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+}
+function showStudentView(subViewId) {
+  document.querySelectorAll('#student .sub-view').forEach(v => v.classList.remove('active'));
+  document.getElementById('student-' + subViewId).classList.add('active');
+  document.querySelectorAll('#student .nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+}
+function handleLogin() {
+  const username = document.getElementById('login-username').value.toLowerCase();
+  if (username.includes('admin') || username.includes('maitre')) showView('admin');
+  else if (username.includes('prof')) showView('teacher');
+  else showView('student');
+}
+function togglePassword() {
+  const input = document.getElementById('login-password');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
+</body>
+</html>
