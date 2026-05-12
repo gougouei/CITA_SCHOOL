@@ -1,14 +1,46 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
-  const body = await request.json();
+const MARITAL_VALUES = ["single", "married", "divorced", "widowed"] as const;
+type MaritalStatus = (typeof MARITAL_VALUES)[number];
 
-  const required = ["last_name", "first_name", "date_of_birth", "country_of_residence", "motivation"];
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+export async function POST(request: Request) {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
+  }
+
+  // Validation des champs requis (correspond au schéma SQL)
+  const required = [
+    "last_name",
+    "first_name",
+    "email",
+    "date_of_birth",
+    "country_of_birth",
+    "country_of_residence",
+    "marital_status",
+    "occupation",
+    "motivation",
+  ];
   for (const field of required) {
-    if (!body[field]) {
-      return NextResponse.json({ error: `Champ requis manquant: ${field}` }, { status: 400 });
+    if (!body[field] || (typeof body[field] === "string" && !(body[field] as string).trim())) {
+      return NextResponse.json({ error: `Le champ "${field}" est requis.` }, { status: 400 });
     }
+  }
+
+  // Validation du format email
+  const email = (body.email as string).trim().toLowerCase();
+  if (!EMAIL_REGEX.test(email)) {
+    return NextResponse.json({ error: "Adresse email invalide." }, { status: 400 });
+  }
+
+  // Validation de marital_status
+  if (!MARITAL_VALUES.includes(body.marital_status as MaritalStatus)) {
+    return NextResponse.json({ error: "Situation matrimoniale invalide." }, { status: 400 });
   }
 
   const supabase = await createServerSupabaseClient();
@@ -16,20 +48,34 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("admission_requests")
     .insert({
-      last_name: body.last_name,
-      first_name: body.first_name,
-      date_of_birth: body.date_of_birth,
-      country_of_residence: body.country_of_residence,
-      marital_status: body.marital_status ?? null,
-      occupation: body.occupation ?? null,
-      motivation: body.motivation,
-      status: "pending",
+      last_name:            (body.last_name            as string).trim(),
+      first_name:           (body.first_name           as string).trim(),
+      email,
+      date_of_birth:        body.date_of_birth         as string,
+      country_of_birth:     (body.country_of_birth     as string).trim(),
+      country_of_residence: (body.country_of_residence as string).trim(),
+      marital_status:       body.marital_status        as MaritalStatus,
+      occupation:           (body.occupation           as string).trim(),
+      how_discovered:       body.how_discovered        ? (body.how_discovered as string).trim() : null,
+      motivation:           (body.motivation           as string).trim(),
+      status:               "pending",
     })
-    .select()
+    .select("id")
     .single();
 
   if (error) {
-    return NextResponse.json({ error: "Erreur lors de la soumission" }, { status: 500 });
+    console.error("[admission] Insert error:", error);
+    // Erreur de doublon (contrainte unique sur email)
+    if (error.code === "23505") {
+      return NextResponse.json(
+        { error: "Une demande a déjà été soumise avec cette adresse email." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Erreur lors de la soumission. Veuillez réessayer." },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true, id: data.id }, { status: 201 });

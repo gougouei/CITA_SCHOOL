@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { X, KeyRound, User, BookOpen, ShieldCheck } from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Student {
@@ -20,54 +21,57 @@ interface ClassOption {
   name: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const ALL_CLASSES: ClassOption[] = [
-  { id: "c1", name: "Initiation Niveau 1" },
-  { id: "c2", name: "Initiation Niveau 2" },
-  { id: "c3", name: "Avancé" },
-  { id: "c4", name: "Maîtrise" },
-];
-
-const MOCK_STUDENTS: Student[] = [
-  { id: "s1", full_name: "Kouamé Aya",      username: "aya.kouame", is_active: true,  classes: ["c1"] },
-  { id: "s2", full_name: "Ouattara Moussa", username: "moussa.o",   is_active: true,  classes: ["c2"] },
-  { id: "s3", full_name: "Traoré Fatima",   username: "fatima.t",   is_active: false, classes: ["c1", "c3"] },
-  { id: "s4", full_name: "Diallo Ibrahim",  username: "ibrahim.d",  is_active: true,  classes: ["c4"] },
-];
-
-// ─── Génération credentials ───────────────────────────────────────────────────
-function generateUsername(fullName: string, existing: string[]): string {
-  const parts = fullName
-    .toLowerCase()
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z\s]/g, "")
-    .trim()
-    .split(/\s+/);
-  const first = parts[0] ?? "user";
-  const last  = parts[1] ?? "";
-  const base  = last ? `${first}.${last}` : first;
-  if (!existing.includes(base)) return base;
-  let n = 2;
-  while (existing.includes(`${base}${n}`)) n++;
-  return `${base}${n}`;
-}
-
-function generatePassword(): string {
-  const U = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const L = "abcdefghjkmnpqrstuvwxyz";
-  const D = "23456789";
-  const S = "!@#$%";
-  const all = U + L + D + S;
-  const pwd = [U, L, D, S].map((set) => set[Math.floor(Math.random() * set.length)]);
-  for (let i = 4; i < 14; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
-  return pwd.sort(() => Math.random() - 0.5).join("");
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AdminEtudiantsPage() {
-  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
+  const supabase = createClient();
+
+  const [students,    setStudents]    = useState<Student[]>([]);
+  const [allClasses,  setAllClasses]  = useState<ClassOption[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
   const [editing,     setEditing]     = useState<Student | null>(null);
   const [showCreate,  setShowCreate]  = useState(false);
+
+  async function loadData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [studentsRes, classesRes, membersRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, username, is_active")
+          .eq("role", "student")
+          .order("full_name"),
+        supabase.from("classes").select("id, name").order("name"),
+        supabase.from("class_members").select("class_id, user_id").eq("role", "student"),
+      ]);
+
+      if (studentsRes.error) throw studentsRes.error;
+      if (classesRes.error)  throw classesRes.error;
+      if (membersRes.error)  throw membersRes.error;
+
+      const members = membersRes.data ?? [];
+      const enriched: Student[] = (studentsRes.data ?? []).map((s) => ({
+        id:        s.id,
+        full_name: s.full_name,
+        username:  s.username,
+        is_active: s.is_active,
+        classes:   members.filter((m) => m.user_id === s.id).map((m) => m.class_id),
+      }));
+
+      setStudents(enriched);
+      setAllClasses(classesRes.data ?? []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur de chargement");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openModal(s: Student) {
     setEditing({ ...s, classes: [...s.classes] });
@@ -77,19 +81,64 @@ export default function AdminEtudiantsPage() {
     setEditing(null);
   }
 
-  function saveStudent(updated: Student) {
-    setStudents((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-    closeModal();
+  async function saveStudent(updated: Student) {
+    setError(null);
+    try {
+      // 1. Mise à jour du profil (full_name + is_active)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: updated.full_name, is_active: updated.is_active })
+        .eq("id", updated.id);
+      if (profileError) throw profileError;
+
+      // 2. Réconciliation des classes
+      const { data: current, error: fetchError } = await supabase
+        .from("class_members")
+        .select("class_id")
+        .eq("user_id", updated.id)
+        .eq("role", "student");
+      if (fetchError) throw fetchError;
+
+      const currentIds = new Set((current ?? []).map((m) => m.class_id));
+      const desiredIds = new Set(updated.classes);
+      const toAdd      = updated.classes.filter((id) => !currentIds.has(id));
+      const toRemove   = [...currentIds].filter((id) => !desiredIds.has(id));
+
+      if (toAdd.length > 0) {
+        const rows = toAdd.map((cid) => ({ class_id: cid, user_id: updated.id, role: "student" as const }));
+        const { error } = await supabase.from("class_members").insert(rows);
+        if (error) throw error;
+      }
+
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from("class_members")
+          .delete()
+          .eq("user_id", updated.id)
+          .eq("role", "student")
+          .in("class_id", toRemove);
+        if (error) throw error;
+      }
+
+      closeModal();
+      await loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur lors de la mise à jour");
+    }
   }
 
-  function addStudent(s: Student) {
-    setStudents((prev) => [...prev, s]);
-  }
-
-  function quickToggle(id: string) {
-    setStudents((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, is_active: !s.is_active } : s))
-    );
+  async function quickToggle(id: string, currentActive: boolean) {
+    setError(null);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_active: !currentActive })
+        .eq("id", id);
+      if (error) throw error;
+      await loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur");
+    }
   }
 
   return (
@@ -103,6 +152,22 @@ export default function AdminEtudiantsPage() {
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8">
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-sm">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-20 text-muted-fg text-sm">Chargement des étudiants…</div>
+        ) : students.length === 0 ? (
+          <div className="text-center py-20 text-muted-fg text-sm">
+            Aucun étudiant inscrit.{" "}
+            <button onClick={() => setShowCreate(true)} className="text-citsa-red-hex underline">
+              Créer le premier compte
+            </button>
+          </div>
+        ) : (
         <Card>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
@@ -141,7 +206,7 @@ export default function AdminEtudiantsPage() {
                         {s.classes.length === 0
                           ? <span className="text-muted-fg text-xs">Aucune</span>
                           : s.classes.map(cid => {
-                              const cls = ALL_CLASSES.find(c => c.id === cid);
+                              const cls = allClasses.find(c => c.id === cid);
                               return cls ? (
                                 <span key={cid} className="text-[0.7rem] bg-secondary border border-border px-2 py-0.5 rounded-full text-muted-fg">
                                   {cls.name}
@@ -168,7 +233,7 @@ export default function AdminEtudiantsPage() {
                         <Button
                           variant={s.is_active ? "destructive" : "secondary"}
                           size="sm"
-                          onClick={() => quickToggle(s.id)}
+                          onClick={() => quickToggle(s.id, s.is_active)}
                         >
                           {s.is_active ? "Désactiver" : "Activer"}
                         </Button>
@@ -180,13 +245,14 @@ export default function AdminEtudiantsPage() {
             </table>
           </div>
         </Card>
+        )}
       </div>
 
       {/* Modal édition */}
       {editing && (
         <EditStudentModal
           student={editing}
-          allClasses={ALL_CLASSES}
+          allClasses={allClasses}
           onSave={saveStudent}
           onClose={closeModal}
         />
@@ -195,9 +261,8 @@ export default function AdminEtudiantsPage() {
       {/* Modal création */}
       {showCreate && (
         <CreateStudentModal
-          allClasses={ALL_CLASSES}
-          existingUsernames={students.map((s) => s.username)}
-          onCreate={(s) => { addStudent(s); setShowCreate(false); }}
+          allClasses={allClasses}
+          onCreated={async () => { setShowCreate(false); await loadData(); }}
           onClose={() => setShowCreate(false)}
         />
       )}
@@ -208,44 +273,52 @@ export default function AdminEtudiantsPage() {
 // ─── Modal création ───────────────────────────────────────────────────────────
 function CreateStudentModal({
   allClasses,
-  existingUsernames,
-  onCreate,
+  onCreated,
   onClose,
 }: {
   allClasses: ClassOption[];
-  existingUsernames: string[];
-  onCreate: (s: Student) => void;
+  onCreated: () => void | Promise<void>;
   onClose: () => void;
 }) {
   const [step, setStep] = useState<"form" | "done">("form");
-  const [fullName,  setFullName]  = useState("");
-  const [classes,   setClasses]   = useState<string[]>([]);
-  const [error,     setError]     = useState("");
-  const [generated, setGenerated] = useState<{ username: string; password: string } | null>(null);
-  const [copied,    setCopied]    = useState<"user" | "pwd" | null>(null);
+  const [fullName,   setFullName]   = useState("");
+  const [classes,    setClasses]    = useState<string[]>([]);
+  const [error,      setError]      = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [generated,  setGenerated]  = useState<{ username: string; password: string } | null>(null);
+  const [copied,     setCopied]     = useState<"user" | "pwd" | null>(null);
 
   function toggleClass(id: string) {
     setClasses((prev) => prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]);
   }
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!fullName.trim()) { setError("Le nom complet est obligatoire."); return; }
     setError("");
-    const username = generateUsername(fullName.trim(), existingUsernames);
-    const password = generatePassword();
-    setGenerated({ username, password });
-    setStep("done");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName.trim(),
+          role: "student",
+          class_ids: classes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur lors de la création");
+      setGenerated({ username: data.username, password: data.password });
+      setStep("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur lors de la création");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleConfirm() {
-    if (!generated) return;
-    onCreate({
-      id: `s${Date.now()}`,
-      full_name: fullName.trim(),
-      username: generated.username,
-      is_active: true,
-      classes,
-    });
+  async function handleConfirm() {
+    await onCreated();
   }
 
   function copyText(text: string, which: "user" | "pwd") {
@@ -459,16 +532,16 @@ function CreateStudentModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border bg-secondary flex items-center justify-between gap-3">
-          <Button variant="outline" onClick={step === "done" ? () => setStep("form") : onClose}>
-            {step === "done" ? "← Modifier" : "Annuler"}
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            {step === "done" ? "Fermer" : "Annuler"}
           </Button>
           {step === "form" ? (
-            <Button variant="accent" onClick={handleCreate}>
-              Générer les accès →
+            <Button variant="accent" onClick={handleCreate} disabled={submitting}>
+              {submitting ? "Création…" : "Créer le compte →"}
             </Button>
           ) : (
             <Button variant="accent" onClick={handleConfirm}>
-              Confirmer la création
+              Terminer
             </Button>
           )}
         </div>
@@ -486,7 +559,7 @@ function EditStudentModal({
 }: {
   student: Student;
   allClasses: ClassOption[];
-  onSave: (s: Student) => void;
+  onSave: (s: Student) => void | Promise<void>;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<Student>({ ...student, classes: [...student.classes] });

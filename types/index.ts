@@ -24,16 +24,17 @@ export interface AdmissionRequest {
   id: string;
   last_name: string;
   first_name: string;
+  email: string;
   date_of_birth: string;
-  age: number;
   country_of_birth: string;
   country_of_residence: string;
   marital_status: "single" | "married" | "divorced" | "widowed";
   occupation: string;
-  how_discovered: string;
+  how_discovered: string | null;
   motivation: string;
   status: "pending" | "approved" | "rejected";
   reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
 }
 

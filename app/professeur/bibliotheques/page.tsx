@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = "pdf" | "video" | "audio" | "pptx";
@@ -17,20 +18,10 @@ interface LibFile {
   mockSrc?: string;
 }
 
-// ─── Mock data — toutes les classes du professeur ─────────────────────────────
-const FILES: LibFile[] = [
-  { id: "1",  name: "Introduction aux rituels.pdf",   type: "pdf",   size: "2.4 MB",  addedAt: "2025-01-10", classe: "Initiation Niveau 1" },
-  { id: "2",  name: "Cours 01 — Fondements.mp4",      type: "video", size: "124 MB",  addedAt: "2025-01-12", classe: "Initiation Niveau 1" },
-  { id: "3",  name: "Méditation guidée.mp3",           type: "audio", size: "8.2 MB",  addedAt: "2025-01-14", classe: "Initiation Niveau 1" },
-  { id: "4",  name: "Chants ancestraux vol.1.mp3",    type: "audio", size: "12.4 MB", addedAt: "2025-01-22", classe: "Initiation Niveau 1" },
-  { id: "5",  name: "Présentation cérémonie.pptx",    type: "pptx",  size: "4.1 MB",  addedAt: "2025-01-15", classe: "Initiation Niveau 2" },
-  { id: "6",  name: "Cours 02 — Pratiques.mp4",       type: "video", size: "210 MB",  addedAt: "2025-01-20", classe: "Initiation Niveau 2" },
-  { id: "7",  name: "Textes sacrés vol.1.pdf",        type: "pdf",   size: "5.8 MB",  addedAt: "2025-01-18", classe: "Avancé" },
-  { id: "8",  name: "Cours Avancé — Pratiques.mp4",   type: "video", size: "210 MB",  addedAt: "2025-01-20", classe: "Avancé" },
-  { id: "9",  name: "Chants ancestraux.mp3",          type: "audio", size: "12.4 MB", addedAt: "2025-01-22", classe: "Avancé" },
-  { id: "10", name: "Manuel de Maîtrise.pdf",         type: "pdf",   size: "3.1 MB",  addedAt: "2025-01-25", classe: "Maîtrise" },
-  { id: "11", name: "Cérémonies de maîtrise.mp4",     type: "video", size: "340 MB",  addedAt: "2025-01-28", classe: "Maîtrise" },
-];
+function formatSize(bytes: number) {
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
+}
 
 // ─── Config par type ──────────────────────────────────────────────────────────
 const TYPE_CFG: Record<FileType, { label: string; icon: string; color: string; bg: string }> = {
@@ -46,15 +37,60 @@ function formatDate(iso: string) {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function ProfesseurBibliothequesPage() {
+  const supabase = createClient();
+  const [files,       setFiles]       = useState<LibFile[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
   const [activeFile,  setActiveFile]  = useState<LibFile | null>(null);
   const [activeClass, setActiveClass] = useState<string>("all");
 
-  const classes = Array.from(new Set(FILES.map((f) => f.classe)));
+  useEffect(() => {
+    async function loadFiles() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [filesRes, linksRes, classesRes] = await Promise.all([
+          supabase
+            .from("library_files")
+            .select("id, library_id, file_name, file_type, file_size, created_at")
+            .order("created_at", { ascending: false }),
+          supabase.from("library_classes").select("library_id, class_id"),
+          supabase.from("classes").select("id, name"),
+        ]);
 
-  const displayed = activeClass === "all"
-    ? FILES
-    : FILES.filter((f) => f.classe === activeClass);
+        if (filesRes.error)   throw filesRes.error;
+        if (linksRes.error)   throw linksRes.error;
+        if (classesRes.error) throw classesRes.error;
 
+        const links   = linksRes.data ?? [];
+        const classes = classesRes.data ?? [];
+
+        const enriched: LibFile[] = (filesRes.data ?? []).map((f) => {
+          const link = links.find((l) => l.library_id === f.library_id);
+          const cls  = link ? classes.find((c) => c.id === link.class_id) : null;
+          return {
+            id:      f.id,
+            name:    f.file_name,
+            type:    (f.file_type as FileType) ?? "pdf",
+            size:    formatSize(f.file_size ?? 0),
+            addedAt: f.created_at,
+            classe:  cls?.name ?? "Sans classe",
+          };
+        });
+
+        setFiles(enriched);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erreur de chargement");
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadFiles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const classes = Array.from(new Set(files.map((f) => f.classe)));
+  const displayed = activeClass === "all" ? files : files.filter((f) => f.classe === activeClass);
   const groupedClasses = activeClass === "all" ? classes : [activeClass];
 
   return (
@@ -65,6 +101,25 @@ export default function ProfesseurBibliothequesPage() {
       </header>
 
       <div className="p-4 sm:p-6 lg:p-8">
+
+        {error && (
+          <div className="mb-4 px-4 py-3 rounded-lg bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-sm">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-20 text-muted-fg text-sm">Chargement…</div>
+        ) : files.length === 0 ? (
+          <div className="text-center py-16 sm:py-20 border-2 border-dashed border-border rounded-2xl">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted-bg flex items-center justify-center text-2xl">📚</div>
+            <p className="text-[#141414] font-semibold mb-1">Aucun document disponible</p>
+            <p className="text-muted-fg text-sm">
+              Les ressources pédagogiques de vos classes apparaîtront ici.
+            </p>
+          </div>
+        ) : (
+        <>
 
         {/* Filtre par classe */}
         <div className="flex flex-wrap gap-2 mb-6 sm:mb-8">
@@ -129,6 +184,8 @@ export default function ProfesseurBibliothequesPage() {
             );
           })}
         </div>
+        </>
+        )}
       </div>
 
       {activeFile && (

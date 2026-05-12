@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
+import { AdmissionForm } from "@/components/admission-form";
 
 export default function LandingPage() {
   return (
@@ -70,109 +71,3 @@ export default function LandingPage() {
   );
 }
 
-function AdmissionForm() {
-  return (
-    <form action="/api/admission" method="POST">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">
-            Nom <span className="text-citsa-red-hex">*</span>
-          </label>
-          <input
-            name="last_name"
-            type="text"
-            placeholder="Votre nom"
-            required
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all"
-          />
-        </div>
-
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">
-            Prénoms <span className="text-citsa-red-hex">*</span>
-          </label>
-          <input
-            name="first_name"
-            type="text"
-            placeholder="Vos prénoms"
-            required
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all"
-          />
-        </div>
-
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">
-            Date de naissance <span className="text-citsa-red-hex">*</span>
-          </label>
-          <input
-            name="date_of_birth"
-            type="date"
-            required
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all"
-          />
-        </div>
-
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">
-            Pays de résidence <span className="text-citsa-red-hex">*</span>
-          </label>
-          <select
-            name="country_of_residence"
-            required
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex transition-all"
-          >
-            <option value="">Sélectionnez</option>
-            <option>Bénin</option>
-            <option>Cameroun</option>
-            <option>Côte d&apos;Ivoire</option>
-            <option>France</option>
-            <option>Sénégal</option>
-            <option>Autre</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">Situation matrimoniale</label>
-          <select
-            name="marital_status"
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex transition-all"
-          >
-            <option value="">Sélectionnez</option>
-            <option value="single">Célibataire</option>
-            <option value="married">Marié(e)</option>
-            <option value="divorced">Divorcé(e)</option>
-            <option value="widowed">Veuf/Veuve</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">Profession</label>
-          <input
-            name="occupation"
-            type="text"
-            placeholder="Votre profession"
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all"
-          />
-        </div>
-
-        <div className="col-span-2 max-sm:col-span-1 flex flex-col gap-[0.4rem]">
-          <label className="text-[0.8rem] font-medium">
-            Motivation <span className="text-citsa-red-hex">*</span>
-          </label>
-          <textarea
-            name="motivation"
-            placeholder="Pourquoi souhaitez-vous rejoindre CITSA ?"
-            required
-            className="font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] py-[0.625rem] min-h-[100px] resize-y outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all"
-          />
-        </div>
-      </div>
-
-      <div className="mt-8 flex justify-center">
-        <Button type="submit" variant="accent" size="lg">
-          Soumettre ma demande
-        </Button>
-      </div>
-    </form>
-  );
-}
