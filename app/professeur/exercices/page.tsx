@@ -1,56 +1,38 @@
-import { Badge } from "@/components/ui/badge";
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 export default function ProfesseurExercicesPage() {
   return (
     <>
-      <header className="bg-white border-b border-border px-8 py-5 flex justify-between items-center">
-        <h1 className="font-serif text-2xl font-semibold text-[#141414]">Exercices & Quiz</h1>
-        <Button variant="accent">+ Créer un Quiz</Button>
+      <header className="bg-white border-b border-border px-4 py-4 sm:px-8 sm:py-5 flex justify-between items-center gap-3 flex-wrap">
+        <div>
+          <h1 className="font-serif text-xl sm:text-2xl font-semibold text-[#141414]">Exercices & Quiz</h1>
+          <p className="text-sm text-muted-fg mt-0.5">Créez et gérez les exercices de vos classes</p>
+        </div>
+        <Button variant="accent" size="sm" disabled title="Disponible prochainement">
+          + Créer un exercice
+        </Button>
       </header>
-      <div className="p-8">
+
+      <div className="p-4 sm:p-6 lg:p-8">
         <Card>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  {["Titre", "Type", "Classe", "Soumissions", "Actions"].map((h) => (
-                    <th key={h} className="text-left px-6 py-3 text-[0.7rem] font-bold tracking-[0.08em] uppercase text-muted-fg bg-secondary border-b border-border">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <ExerciseRow title="QCM — Rituels" type="QCM" classe="Initiation Niv.1" submissions="6/8" />
-                <ExerciseRow title="Exercice — Méditation" type="PDF" classe="Initiation Niv.2" submissions="10/14" />
-              </tbody>
-            </table>
+          <div className="px-6 py-16 sm:py-20 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted-bg flex items-center justify-center">
+              <svg className="w-7 h-7 text-muted-fg" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+              </svg>
+            </div>
+            <p className="text-[#141414] font-semibold mb-1">Aucun exercice créé</p>
+            <p className="text-muted-fg text-sm max-w-md mx-auto">
+              La fonctionnalité de création d&apos;exercices et de quiz sera bientôt disponible.
+              Les exercices que vous créerez apparaîtront ici.
+            </p>
           </div>
         </Card>
       </div>
     </>
-  );
-}
-
-function ExerciseRow({
-  title, type, classe, submissions,
-}: {
-  title: string; type: string; classe: string; submissions: string;
-}) {
-  return (
-    <tr className="hover:bg-muted-bg border-b border-border last:border-0">
-      <td className="px-6 py-[0.875rem] text-sm font-semibold">{title}</td>
-      <td className="px-6 py-[0.875rem] text-sm"><Badge variant="muted">{type}</Badge></td>
-      <td className="px-6 py-[0.875rem] text-sm text-muted-fg">{classe}</td>
-      <td className="px-6 py-[0.875rem] text-sm text-muted-fg">{submissions}</td>
-      <td className="px-6 py-[0.875rem] text-sm">
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">Voir résultats</Button>
-          <Button variant="destructive" size="sm">Supprimer</Button>
-        </div>
-      </td>
-    </tr>
   );
 }

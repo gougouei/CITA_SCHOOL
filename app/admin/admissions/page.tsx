@@ -48,6 +48,12 @@ function calculateAge(dob: string) {
   return age;
 }
 
+interface ApprovalResult {
+  full_name: string;
+  username:  string;
+  password:  string;
+}
+
 export default function AdminAdmissionsPage() {
   const supabase = createClient();
   const [admissions, setAdmissions] = useState<Admission[]>([]);
@@ -55,6 +61,8 @@ export default function AdminAdmissionsPage() {
   const [error,      setError]      = useState<string | null>(null);
   const [filter,     setFilter]     = useState<Status | "all">("all");
   const [detail,     setDetail]     = useState<Admission | null>(null);
+  const [approving,  setApproving]  = useState<string | null>(null);
+  const [approval,   setApproval]   = useState<ApprovalResult | null>(null);
 
   async function loadAdmissions() {
     setLoading(true);
@@ -81,6 +89,35 @@ export default function AdminAdmissionsPage() {
 
   async function updateStatus(id: string, status: "approved" | "rejected") {
     setError(null);
+
+    if (status === "approved") {
+      // Approbation → crée automatiquement le compte étudiant
+      setApproving(id);
+      try {
+        const res = await fetch("/api/admin/approve-admission", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ admission_id: id }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Erreur lors de l'approbation");
+
+        setDetail(null);
+        setApproval({
+          full_name: data.full_name,
+          username:  data.username,
+          password:  data.password,
+        });
+        await loadAdmissions();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Erreur");
+      } finally {
+        setApproving(null);
+      }
+      return;
+    }
+
+    // Rejet → simple update direct
     try {
       const { error } = await supabase
         .from("admission_requests")
@@ -200,10 +237,20 @@ export default function AdminAdmissionsPage() {
                           </Button>
                           {a.status === "pending" && (
                             <>
-                              <Button variant="accent"  size="sm" onClick={() => updateStatus(a.id, "approved")}>
-                                Approuver
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                disabled={approving === a.id}
+                                onClick={() => updateStatus(a.id, "approved")}
+                              >
+                                {approving === a.id ? "Création…" : "Approuver"}
                               </Button>
-                              <Button variant="destructive" size="sm" onClick={() => updateStatus(a.id, "rejected")}>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={approving === a.id}
+                                onClick={() => updateStatus(a.id, "rejected")}
+                              >
                                 Rejeter
                               </Button>
                             </>
@@ -227,6 +274,11 @@ export default function AdminAdmissionsPage() {
           onApprove={() => updateStatus(detail.id, "approved")}
           onReject={() => updateStatus(detail.id, "rejected")}
         />
+      )}
+
+      {/* Modal credentials générés */}
+      {approval && (
+        <CredentialsModal result={approval} onClose={() => setApproval(null)} />
       )}
     </>
   );
@@ -336,7 +388,9 @@ function AdmissionDetailModal({
           {admission.status === "pending" ? (
             <>
               <Button variant="destructive" onClick={onReject}>Rejeter</Button>
-              <Button variant="accent" onClick={onApprove}>Approuver</Button>
+              <Button variant="accent" onClick={onApprove}>
+                Approuver &amp; créer le compte
+              </Button>
             </>
           ) : (
             <Button variant="outline" onClick={onClose}>Fermer</Button>
@@ -375,5 +429,110 @@ function DetailEmail({ label, email }: { label: string; email: string }) {
         {email}
       </a>
     </div>
+  );
+}
+
+// ─── Modal Credentials (après approbation) ────────────────────────────────────
+function CredentialsModal({
+  result, onClose,
+}: {
+  result: ApprovalResult;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState<"user" | "pwd" | null>(null);
+
+  function copyText(text: string, which: "user" | "pwd") {
+    navigator.clipboard.writeText(text);
+    setCopied(which);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]" onClick={onClose} />
+      <div className="fixed top-0 right-0 bottom-0 w-full max-w-[480px] bg-white z-[201] flex flex-col shadow-elevated">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border">
+          <div>
+            <h2 className="font-serif text-lg font-semibold text-[#141414]">Compte étudiant créé</h2>
+            <p className="text-xs text-muted-fg mt-0.5">
+              Transmettez ces accès à l&apos;étudiant — ils ne seront plus affichés.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-muted-fg hover:text-[#141414] transition-colors p-1 rounded-md hover:bg-muted-bg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Contenu */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
+
+          {/* Succès */}
+          <div className="flex items-center gap-3 bg-[hsla(142,60%,45%,0.08)] border border-[hsla(142,60%,45%,0.25)] rounded-xl px-4 py-3">
+            <div className="w-8 h-8 rounded-full bg-[hsla(142,60%,45%,0.15)] flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-[hsl(142,60%,35%)]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-[hsl(142,60%,28%)]">
+                {result.full_name} a maintenant un compte étudiant
+              </p>
+              <p className="text-[0.72rem] text-[hsl(142,50%,35%)]">
+                L&apos;admission est marquée comme approuvée.
+              </p>
+            </div>
+          </div>
+
+          {/* Username */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.78rem] font-semibold text-[#141414]">Nom d&apos;utilisateur</label>
+            <div className="flex items-center gap-2 bg-muted-bg border border-border rounded-md px-3 h-10">
+              <code className="flex-1 text-sm font-mono text-[#141414]">{result.username}</code>
+              <button
+                onClick={() => copyText(result.username, "user")}
+                className="text-[0.72rem] font-semibold text-citsa-red-hex hover:opacity-75 transition-opacity flex-shrink-0"
+              >
+                {copied === "user" ? "✓ Copié" : "Copier"}
+              </button>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[0.78rem] font-semibold text-[#141414]">Mot de passe</label>
+            <div className="flex items-center gap-2 bg-muted-bg border border-border rounded-md px-3 h-10">
+              <code className="flex-1 text-sm font-mono tracking-wide text-[#141414]">{result.password}</code>
+              <button
+                onClick={() => copyText(result.password, "pwd")}
+                className="text-[0.72rem] font-semibold text-citsa-red-hex hover:opacity-75 transition-opacity flex-shrink-0"
+              >
+                {copied === "pwd" ? "✓ Copié" : "Copier"}
+              </button>
+            </div>
+          </div>
+
+          {/* Avertissement */}
+          <div className="flex items-start gap-2 bg-[hsla(35,90%,50%,0.08)] border border-[hsla(35,90%,50%,0.25)] rounded-xl px-4 py-3">
+            <svg className="w-4 h-4 text-[hsl(35,90%,35%)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1={12} y1={9} x2={12} y2={13}/><line x1={12} y1={17} x2={12.01} y2={17}/>
+            </svg>
+            <p className="text-[0.72rem] text-[hsl(35,80%,30%)]">
+              Le mot de passe ne sera plus jamais affiché après fermeture. Copiez-le maintenant
+              avant de transmettre les accès à l&apos;étudiant.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-border bg-secondary flex items-center justify-end gap-3">
+          <Button variant="accent" onClick={onClose}>Terminer</Button>
+        </div>
+      </div>
+    </>
   );
 }

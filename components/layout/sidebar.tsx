@@ -21,14 +21,21 @@ interface SidebarProps {
   role: UserRole;
   userName: string;
   userInitials: string;
+  avatarUrl?: string | null;
   sections: NavSection[];
   isOpen?: boolean;
   onClose?: () => void;
 }
 
-export function Sidebar({ role, userName, userInitials, sections, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ role, userName, userInitials, avatarUrl, sections, isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
+
+  // Chemin de la page profil pour le rôle courant
+  const profilePath =
+    role === "admin"     ? "/admin/profil"      :
+    role === "professor" ? "/professeur/profil" :
+                           "/etudiant/profil";
 
   const roleLabel =
     role === "admin"     ? "Administrateur" :
@@ -105,17 +112,41 @@ export function Sidebar({ role, userName, userInitials, sections, isOpen, onClos
         </nav>
 
         <div className="pt-4 border-t border-white/[0.08]">
-          <div className="flex items-center gap-3 p-2 mb-2">
-            <div className="w-9 h-9 bg-gradient-to-br from-citsa-red-light to-citsa-red rounded-full flex items-center justify-center font-semibold text-[0.8rem] flex-shrink-0">
-              {userInitials}
-            </div>
+          {/* Profil — cliquable pour ouvrir la page profil */}
+          <Link
+            href={profilePath}
+            onClick={onClose}
+            className={cn(
+              "flex items-center gap-3 p-2 mb-2 rounded-md transition-colors no-underline",
+              pathname.startsWith(profilePath)
+                ? "bg-white/[0.08]"
+                : "hover:bg-white/[0.05]"
+            )}
+          >
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt={userName}
+                className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className="w-9 h-9 bg-gradient-to-br from-citsa-red-light to-citsa-red rounded-full flex items-center justify-center font-semibold text-[0.8rem] flex-shrink-0">
+                {userInitials}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <div className="text-[0.8rem] font-semibold text-white truncate">{userName}</div>
               <div className="text-[0.7rem] text-white/50">{roleLabel}</div>
             </div>
-          </div>
+          </Link>
+
           <button
-            onClick={() => router.push("/")}
+            onClick={async () => {
+              const supabase = (await import("@/lib/supabase")).createClient();
+              await supabase.auth.signOut();
+              router.push("/connexion");
+            }}
             className="flex items-center gap-3 px-3 py-[0.65rem] rounded-md text-sm font-medium text-white/60 hover:bg-white/[0.05] hover:text-white transition-all duration-150 w-full text-left"
           >
             <svg className="w-[18px] h-[18px] opacity-70 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

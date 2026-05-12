@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "./sidebar";
+import { createClient } from "@/lib/supabase";
 import type { UserRole } from "@/types";
 
 interface NavItem {
@@ -18,20 +19,67 @@ interface NavSection {
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  role: UserRole;
-  userName: string;
-  userInitials: string;
+  role:     UserRole;
   sections: NavSection[];
+  // Valeurs de fallback si le profil n'est pas encore chargé
+  userName?:     string;
+  userInitials?: string;
+}
+
+function computeInitials(name: string) {
+  return name
+    .replace(/^Prof\.\s*/i, "")
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 export function DashboardLayout({
   children,
   role,
-  userName,
-  userInitials,
   sections,
+  userName: fallbackName = "Utilisateur",
+  userInitials: fallbackInitials = "U",
 }: DashboardLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const supabase = createClient();
+  const [sidebarOpen,  setSidebarOpen]  = useState(false);
+  const [userName,     setUserName]     = useState(fallbackName);
+  const [userInitials, setUserInitials] = useState(fallbackInitials);
+  const [avatarUrl,    setAvatarUrl]    = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setUserName(profile.full_name);
+        setUserInitials(computeInitials(profile.full_name));
+        setAvatarUrl(profile.avatar_url);
+      }
+    }
+    loadProfile();
+
+    // Écouter les mises à jour de profil depuis la page profil
+    function handleProfileUpdate(e: Event) {
+      const detail = (e as CustomEvent<{ avatarUrl?: string | null; fullName?: string }>).detail;
+      if (detail.avatarUrl !== undefined) setAvatarUrl(detail.avatarUrl);
+      if (detail.fullName) {
+        setUserName(detail.fullName);
+        setUserInitials(computeInitials(detail.fullName));
+      }
+    }
+    window.addEventListener("profile-updated", handleProfileUpdate);
+    return () => window.removeEventListener("profile-updated", handleProfileUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const roleLabel =
     role === "admin"     ? "CITSA Admin"       :
@@ -43,13 +91,14 @@ export function DashboardLayout({
         role={role}
         userName={userName}
         userInitials={userInitials}
+        avatarUrl={avatarUrl}
         sections={sections}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
       <div className="flex-1 lg:ml-[260px] bg-secondary min-h-screen flex flex-col">
-        {/* Barre mobile — cachée sur lg+ */}
+        {/* Barre mobile */}
         <div className="lg:hidden sticky top-0 z-30 bg-citsa-black text-white px-4 py-3 flex items-center gap-3 border-b border-white/10 flex-shrink-0">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -70,7 +119,6 @@ export function DashboardLayout({
           </div>
         </div>
 
-        {/* Contenu de la page */}
         <main className="flex-1">
           {children}
         </main>
