@@ -214,33 +214,33 @@ export function CalendarPage({ role }: CalendarPageProps) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 lg:gap-5">
 
           {/* ── Calendrier ───────────────────────────────────────────────────── */}
           <Card>
             {/* Navigation mois */}
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
+            <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-border">
               <button
                 onClick={() => setCursor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))}
-                className="w-8 h-8 flex items-center justify-center rounded-md text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
+                className="w-7 h-7 flex items-center justify-center rounded-md text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                   <polyline points="15 18 9 12 15 6"/>
                 </svg>
               </button>
-              <h2 className="font-serif text-base sm:text-lg font-semibold capitalize">{monthName}</h2>
+              <h2 className="font-serif text-sm sm:text-base font-semibold capitalize">{monthName}</h2>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => { const d = new Date(); d.setDate(1); setCursor(d); }}
-                  className="px-2 sm:px-3 h-8 rounded-md text-[0.72rem] sm:text-xs font-semibold text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
+                  className="px-2 h-7 rounded-md text-[0.7rem] font-semibold text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
                 >
                   Aujourd&apos;hui
                 </button>
                 <button
                   onClick={() => setCursor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))}
-                  className="w-8 h-8 flex items-center justify-center rounded-md text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
+                  className="w-7 h-7 flex items-center justify-center rounded-md text-muted-fg hover:text-[#141414] hover:bg-muted-bg transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                     <polyline points="9 18 15 12 9 6"/>
                   </svg>
                 </button>
@@ -250,7 +250,7 @@ export function CalendarPage({ role }: CalendarPageProps) {
             {/* En-tête jours */}
             <div className="grid grid-cols-7 border-b border-border bg-secondary">
               {DAYS.map((d) => (
-                <div key={d} className="px-1 sm:px-2 py-2 text-center text-[0.65rem] sm:text-[0.7rem] font-bold uppercase tracking-wider text-muted-fg">
+                <div key={d} className="px-1 py-1.5 text-center text-[0.6rem] sm:text-[0.65rem] font-bold uppercase tracking-wider text-muted-fg">
                   {d}
                 </div>
               ))}
@@ -269,7 +269,7 @@ export function CalendarPage({ role }: CalendarPageProps) {
                     <div
                       key={idx}
                       onClick={() => canCreate && inMonth && setCreating({ open: true, date: ymd(day) })}
-                      className={`min-h-[80px] sm:min-h-[100px] border-r border-b border-border p-1 sm:p-1.5 flex flex-col gap-1 ${
+                      className={`min-h-[56px] sm:min-h-[70px] border-r border-b border-border p-1 flex flex-col gap-0.5 ${
                         idx % 7 === 6 ? "border-r-0" : ""
                       } ${
                         !inMonth ? "bg-muted-bg/30" : ""
@@ -277,29 +277,29 @@ export function CalendarPage({ role }: CalendarPageProps) {
                         canCreate && inMonth ? "cursor-pointer hover:bg-muted-bg/50 transition-colors" : ""
                       }`}
                     >
-                      <div className={`text-[0.7rem] sm:text-xs font-semibold ${
+                      <div className={`text-[0.65rem] sm:text-[0.7rem] font-semibold ${
                         isToday
-                          ? "w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-citsa-red-hex text-white flex items-center justify-center"
+                          ? "w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-citsa-red-hex text-white flex items-center justify-center"
                           : inMonth ? "text-[#141414]" : "text-muted-fg/50"
                       }`}>
                         {day.getDate()}
                       </div>
                       <div className="flex flex-col gap-0.5 overflow-hidden">
-                        {dayEvents.slice(0, 3).map((e) => {
+                        {dayEvents.slice(0, 2).map((e) => {
                           const cfg = EVENT_TYPE_BY_VALUE[e.event_type];
                           return (
                             <button
                               key={e.id}
                               onClick={(ev) => { ev.stopPropagation(); setSelected(e); }}
-                              className={`text-left text-[0.65rem] sm:text-[0.7rem] px-1.5 py-0.5 rounded ${cfg.bg} ${cfg.color} font-medium truncate hover:opacity-80 transition-opacity`}
+                              className={`text-left text-[0.6rem] sm:text-[0.65rem] px-1 py-px rounded ${cfg.bg} ${cfg.color} font-medium truncate hover:opacity-80 transition-opacity leading-tight`}
                             >
                               {e.title}
                             </button>
                           );
                         })}
-                        {dayEvents.length > 3 && (
-                          <span className="text-[0.6rem] text-muted-fg px-1">
-                            +{dayEvents.length - 3} autres
+                        {dayEvents.length > 2 && (
+                          <span className="text-[0.55rem] sm:text-[0.6rem] text-muted-fg px-1 leading-tight">
+                            +{dayEvents.length - 2}
                           </span>
                         )}
                       </div>
