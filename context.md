@@ -1,7 +1,7 @@
 # CITSA OCCULTE SCHOOL INTERNATIONAL — Contexte Projet
 
 > Fichier de référence complet. Redonner ce fichier à Claude Code en début de session pour restaurer tout le contexte.
-> **Dernière mise à jour : v0.2.0**
+> **Dernière mise à jour : v0.3.1**
 
 ---
 
@@ -13,7 +13,7 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 **Repo GitHub :** https://github.com/gougouei/CITA_SCHOOL
 **Répertoire local :** `/Users/mac/Documents/cita_school`
 **Branche principale :** `main`
-**Dernière version taguée :** `v0.2.0`
+**Dernière version taguée :** `v0.3.1`
 
 ---
 
@@ -278,7 +278,7 @@ cita_school/
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
 | Mes Classes | ✅ Supabase | Charge les vraies classes assignées avec compteur étudiants |
-| Cours Live | ⏳ État vide | "Disponible prochainement" |
+| Cours Live | ✅ Jitsi | Lancer un live pour une classe assignée · Modérateur · Recording via Dropbox |
 | Exercices | ⏳ État vide | Bouton "+ Créer" désactivé |
 | Bibliothèques | ✅ Supabase | Filtre par classe · Lecteurs intégrés (video/audio/PDF/PPTX) · Pas de téléchargement |
 | Messagerie | ⏳ État vide | "Vous serez ajouté aux canaux des classes assignées" |
@@ -289,7 +289,7 @@ cita_school/
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
 | Tableau de bord | ✅ Supabase | Vraies classes de l'étudiant · État vide notifications |
-| Cours Live | ⏳ État vide | "Aucun cours en direct" |
+| Cours Live | ✅ Jitsi | Liste lives actifs des classes · Auto-refresh 20s · Rejoindre en un clic |
 | Exercices | ⏳ État vide | "Aucun exercice disponible" |
 | Bibliothèques | ✅ Supabase | Fichiers groupés par classe · Lecteurs intégrés · Non téléchargeable |
 | Messagerie | ⏳ État vide | "Aucune conversation" |
@@ -346,6 +346,52 @@ Composant partagé : `components/profile-page.tsx`, rendu par les 3 pages `/admi
 - **Prof** : doit obligatoirement choisir une classe parmi celles qu'il enseigne
 - **Étudiant** : pas de bouton "Nouvel événement", clic sur événement = modal détails read-only
 
+### Badge dynamique
+Le menu **"Calendrier"** affiche un badge avec le nombre d'événements à venir (`start_at >= now`) pour les **étudiants et professeurs**. Le badge se met à jour automatiquement via `CustomEvent("calendar-events-changed")` après création/édition/suppression.
+
+---
+
+## 10.5 Système de cours live — Jitsi Meet
+
+### Architecture
+- Provider : **Jitsi Meet** (instance publique `meet.jit.si` par défaut, configurable via `NEXT_PUBLIC_JITSI_DOMAIN`)
+- Aucun compte, aucune carte bancaire requis
+- Rooms privées avec noms UUID non-devinables (`citsa-{uuid}`)
+
+### Composant : `components/live/live-room.tsx`
+- Charge dynamiquement le script Jitsi `external_api.js`
+- Instancie `JitsiMeetExternalAPI` dans un iframe plein écran
+- Polling de secours si onLoad ne se déclenche pas (cache navigateur)
+- UI Jitsi prebuilt complète (vidéo, audio, screen share, chat, raise hand, recording)
+- Toolbar différent pour modérateur vs participant
+
+### Routes API
+- `POST /api/professor/start-live` — crée une live_session + génère room name UUID
+- `POST /api/professor/end-live` — marque la session terminée
+- `POST /api/live/access` — vérifie l'auth + le rôle, retourne room_name + is_moderator
+
+### Sécurité
+- L'URL Jitsi n'est jamais exposée publiquement — seul `/api/live/access` la renvoie après vérification
+- Vérifications RLS + auth :
+  - Admin : accès à tout
+  - Prof hôte : modérateur de son propre live
+  - Étudiant : doit être membre d'une classe liée au live (table `live_session_classes`)
+
+### Permissions caméra/micro
+Headers HTTP dans `next.config.ts` :
+```
+Permissions-Policy: camera=(self "https://meet.jit.si"), microphone=..., display-capture=..., autoplay=...
+```
+Essentiel pour Safari et mobiles — sans ça, l'iframe Jitsi ne peut pas accéder à la caméra.
+
+### Recording
+Sur `meet.jit.si` public : le bouton "Recording" est disponible côté prof, mais l'enregistrement nécessite **Dropbox** (ou Google Drive). Jitsi ne stocke pas les vidéos lui-même.
+
+### Limites du free tier Jitsi
+- Pas de recording cloud natif (passage par Dropbox)
+- Performances dégradées au-delà de ~25 participants par room
+- Pour aller plus loin : self-host Jitsi avec Jibri pour recording local
+
 ---
 
 ## 11. Bibliothèques — logique d'accès
@@ -389,18 +435,18 @@ Fonction `generatePassword()` :
 ## 14. Ce qui reste à faire
 
 ### Priorité haute (fonctionnalités métier)
-- [ ] **Live vidéo** — intégration LiveKit / Agora / Daily.co pour `live_sessions`
 - [ ] **Chat temps réel** — brancher `chat_messages` sur Supabase Realtime + UI complète
 - [ ] **Exercices** — UI complète : création par prof (QCM/quiz/PDF), passage par étudiant, correction auto, notation manuelle
 - [ ] **Upload fichiers bibliothèque** — UI admin pour uploader vers bucket `library-files` + assignation classes
-- [ ] **Page mot de passe oublié** — `/mot-de-passe-oublie` (Supabase ne peut pas faire de reset email sur emails fictifs, donc reset par l'admin)
+- [ ] **Page mot de passe oublié** — `/mot-de-passe-oublie` (reset par l'admin, vu que les emails sont fictifs)
 - [ ] **Notifications** — UI dans la sidebar (badge dynamique) + page dédiée
 
 ### Priorité moyenne
 - [ ] **Bouton "Réinitialiser mot de passe"** dans le modal admin étudiant/prof (route API existe déjà)
 - [ ] **Bouton "Supprimer compte"** dans le modal admin (route API existe déjà)
 - [ ] **Broadcast** — brancher l'UI sur `live_sessions` avec `session_type='broadcast'`
-- [ ] **Email transactionnel** quand l'admin approuve une admission (Resend ou alternative)
+- [ ] **Email transactionnel** quand l'admin approuve une admission
+- [ ] **Recording natif** des lives Jitsi (nécessite self-host Jitsi + Jibri)
 
 ### Priorité basse / améliorations
 - [ ] Notifications push browser
@@ -417,9 +463,14 @@ NEXT_PUBLIC_SUPABASE_URL=https://qaudfykhzhpthwhynewz.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
+
+# Jitsi Meet (cours en direct)
+NEXT_PUBLIC_JITSI_DOMAIN=meet.jit.si
 ```
 
 ⚠️ Le `SUPABASE_SERVICE_ROLE_KEY` est utilisé par les routes API `/admin/create-user` et `/admin/approve-admission` pour bypasser RLS. Ne jamais l'exposer côté client.
+
+`NEXT_PUBLIC_JITSI_DOMAIN` par défaut sur `meet.jit.si` (instance publique gratuite). Pour une instance self-hosted, change cette valeur.
 
 ---
 
@@ -465,7 +516,29 @@ claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp
 
 ## 18. Historique des versions
 
-### v0.2.0 — Calendar, profile, admission flow, space cleanup *(actuelle)*
+### v0.3.1 — Live courses Safari/mobile compatibility *(actuelle)*
+
+**Corrections**
+- ✅ Ajout des headers `Permissions-Policy` dans `next.config.ts` pour permettre à l'iframe Jitsi d'accéder à la caméra/micro
+- ✅ Attribut `sandbox` explicite sur l'iframe Jitsi (essentiel pour Safari et iOS)
+- ✅ Détection précoce de `RTCPeerConnection` indisponible
+- ✅ Listeners d'erreurs supplémentaires (cameraError, connectionFailed, passwordRequired)
+- ✅ Désactivation explicite du lobby Jitsi pour éviter le blocage des étudiants
+- ✅ Retrait du panneau debug temporaire
+
+### v0.3.0 — Live courses with Jitsi, profile pages, calendar badge
+
+**Nouvelles fonctionnalités**
+- ✅ Système de cours live complet via **Jitsi Meet** (gratuit, sans carte bancaire)
+- ✅ Routes API : `/api/professor/start-live`, `/api/professor/end-live`, `/api/live/access`
+- ✅ Composant `LiveRoom` partagé avec UI prebuilt Jitsi (vidéo/audio/chat/screen share/recording via Dropbox)
+- ✅ Page prof : modal pour lancer un live, choix de classe assignée
+- ✅ Page étudiant : liste des lives actifs de ses classes, auto-refresh 20s
+- ✅ Modérateur (prof/admin) a une toolbar complète, étudiant a une toolbar restreinte
+- ✅ Détection robuste du script Jitsi (polling de secours pour re-mount)
+- ✅ Badge dynamique sur "Calendrier" pour étudiants/profs (compteur événements à venir)
+
+### v0.2.0 — Calendar, profile, admission flow, space cleanup
 
 **Nouvelles fonctionnalités**
 - ✅ Système de calendrier complet (admin/prof/étudiant) avec table `calendar_events` + RLS

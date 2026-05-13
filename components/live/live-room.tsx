@@ -18,7 +18,7 @@ interface AccessData {
   is_moderator: boolean;
 }
 
-// Types minimaux pour l'API Jitsi (le SDK ne fournit pas de typage officiel)
+// Types minimaux pour l'API Jitsi
 interface JitsiMeetExternalAPI {
   dispose: () => void;
   executeCommand: (command: string, ...args: unknown[]) => void;
@@ -36,7 +36,6 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef       = useRef<JitsiMeetExternalAPI | null>(null);
 
-  // Si le script Jitsi est déjà chargé (navigation interne, cache), on démarre direct
   const [scriptLoaded, setScriptLoaded] = useState(() =>
     typeof window !== "undefined" && typeof window.JitsiMeetExternalAPI === "function"
   );
@@ -66,8 +65,7 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
     }
     check();
 
-    // Sécurité : si le script Jitsi est chargé après mount sans déclencher onLoad
-    // (script déjà en cache), on vérifie périodiquement pendant 5s
+    // Polling de secours si le script Jitsi est déjà chargé mais onLoad n'a pas tiré
     const interval = setInterval(() => {
       if (typeof window.JitsiMeetExternalAPI === "function") {
         setScriptLoaded(true);
@@ -83,7 +81,7 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
     };
   }, [sessionId]);
 
-  // ─── 2. Une fois le script chargé ET l'accès vérifié → instancier Jitsi ───
+  // ─── 2. Instancier Jitsi quand script + access sont prêts ─────────────────
   useEffect(() => {
     if (!scriptLoaded || !access || !containerRef.current) return;
     if (!window.JitsiMeetExternalAPI) {
@@ -92,7 +90,13 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
       return;
     }
 
-    // Nettoyer une instance précédente s'il y en a
+    if (typeof window.RTCPeerConnection === "undefined") {
+      setError("WebRTC est indisponible dans ce navigateur. Essayez Chrome, Firefox ou Safari à jour, ou désactivez les extensions bloquantes.");
+      setLoading(false);
+      return;
+    }
+
+    // Nettoyer une instance précédente
     if (apiRef.current) {
       try { apiRef.current.dispose(); } catch { /* ignore */ }
       apiRef.current = null;
@@ -106,14 +110,14 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
       userInfo: {
         displayName: access.user_name,
       },
+      sandbox: "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation",
       configOverwrite: {
         prejoinPageEnabled: false,
         disableDeepLinking: true,
         startWithAudioMuted: !access.is_moderator,
         startWithVideoMuted: false,
-        // Liste explicite des boutons. Pour les modérateurs, on inclut recording
-        // et mute-everyone. Sur meet.jit.si, le bouton "recording" déclenche
-        // une connexion Dropbox / Google Drive.
+        enableLobbyChat: false,
+        lobby: { enableChat: false, autoKnock: false },
         toolbarButtons: access.is_moderator
           ? [
               "microphone", "camera", "desktop", "chat", "raisehand",
@@ -144,8 +148,22 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
     });
 
     api.addListener("readyToClose", () => {
-      // L'utilisateur a cliqué sur "Quitter" dans la barre Jitsi
       onLeave();
+    });
+
+    api.addListener("cameraError", () => {
+      setError("Impossible d'accéder à la caméra. Vérifiez qu'elle n'est pas déjà utilisée par un autre onglet ou application.");
+      setLoading(false);
+    });
+
+    api.addListener("connectionFailed", () => {
+      setError("La connexion à la salle a échoué. Réessayez plus tard.");
+      setLoading(false);
+    });
+
+    api.addListener("passwordRequired", () => {
+      setError("Cette salle requiert un mot de passe.");
+      setLoading(false);
     });
 
     return () => {
