@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase";
+import { UploadModal } from "@/components/library/upload-modal";
+import { ReaderModal } from "@/components/library/reader-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = "pdf" | "video" | "audio" | "pptx" | "other";
@@ -67,6 +69,16 @@ export default function AdminBibliothequesPage() {
   const [activeClasse, setActiveClasse] = useState<string>("all");
   const [activeType,   setActiveType]   = useState<string>("all");
   const [sortKey,      setSortKey]      = useState<SortKey>("date_desc");
+  const [showUpload,   setShowUpload]   = useState(false);
+  const [readerFile,   setReaderFile]   = useState<FileItem | null>(null);
+
+  async function handleDelete(fileId: string) {
+    if (!confirm("Supprimer ce fichier ? Action irréversible.")) return;
+    setError(null);
+    const { error } = await supabase.from("library_files").delete().eq("id", fileId);
+    if (error) { setError(error.message); return; }
+    await loadData();
+  }
 
   async function loadData() {
     setLoading(true);
@@ -144,7 +156,13 @@ export default function AdminBibliothequesPage() {
     <>
       <header className="bg-white border-b border-border px-4 py-4 sm:px-8 sm:py-5 flex justify-between items-center gap-3 flex-wrap">
         <h1 className="font-serif text-xl sm:text-2xl font-semibold text-[#141414]">Bibliothèques</h1>
-        <Button variant="accent" size="sm" disabled title="Disponible prochainement">
+        <Button
+          variant="accent"
+          size="sm"
+          onClick={() => setShowUpload(true)}
+          disabled={classes.length === 0}
+          title={classes.length === 0 ? "Créez au moins une classe d'abord" : undefined}
+        >
           + Ajouter un fichier
         </Button>
       </header>
@@ -312,33 +330,64 @@ export default function AdminBibliothequesPage() {
                           — {group.length} fichier{group.length > 1 ? "s" : ""}
                         </span>
                       </div>
-                      <FileGrid files={group} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} />
+                      <FileGrid files={group} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} />
                     </section>
                   ))}
               </div>
             ) : (
-              <FileGrid files={filtered} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} />
+              <FileGrid files={filtered} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} />
             )}
           </>
         )}
       </div>
+
+      {showUpload && (
+        <UploadModal
+          classes={classes}
+          onClose={() => setShowUpload(false)}
+          onUploaded={() => loadData()}
+        />
+      )}
+
+      {readerFile && (
+        <ReaderModal
+          file={{
+            id:      readerFile.id,
+            name:    readerFile.name,
+            type:    readerFile.type === "other" ? "pdf" : readerFile.type,
+            size:    readerFile.size * 1024 * 1024,   // size est en MB dans FileItem
+            addedAt: readerFile.addedAt,
+          }}
+          onClose={() => setReaderFile(null)}
+        />
+      )}
     </>
   );
 }
 
 // ─── File Grid ────────────────────────────────────────────────────────────────
 function FileGrid({
-  files, classes, classConfig, showClasse,
+  files, classes, classConfig, showClasse, onView, onDelete,
 }: {
   files: FileItem[];
   classes: ClassOption[];
   classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
   showClasse: boolean;
+  onView:   (f: FileItem) => void;
+  onDelete: (id: string)  => void;
 }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
       {files.map((f) => (
-        <FileCard key={f.id} file={f} classes={classes} classConfig={classConfig} showClasse={showClasse} />
+        <FileCard
+          key={f.id}
+          file={f}
+          classes={classes}
+          classConfig={classConfig}
+          showClasse={showClasse}
+          onView={onView}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   );
@@ -346,12 +395,14 @@ function FileGrid({
 
 // ─── File Card ────────────────────────────────────────────────────────────────
 function FileCard({
-  file, classes, classConfig, showClasse,
+  file, classes, classConfig, showClasse, onView, onDelete,
 }: {
   file: FileItem;
   classes: ClassOption[];
   classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
   showClasse: boolean;
+  onView:   (f: FileItem) => void;
+  onDelete: (id: string)  => void;
 }) {
   const cfg = TYPE_CONFIG[file.type] ?? TYPE_CONFIG.other;
 
@@ -391,8 +442,8 @@ function FileCard({
       </div>
 
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1">Voir</Button>
-        <Button variant="destructive" size="sm" className="flex-1">Supprimer</Button>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(file)}>Voir</Button>
+        <Button variant="destructive" size="sm" className="flex-1" onClick={() => onDelete(file.id)}>Supprimer</Button>
       </div>
     </div>
   );
