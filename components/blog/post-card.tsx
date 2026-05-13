@@ -117,14 +117,7 @@ export function PostCard({ post, userId, onChanged, onRepost, nested }: Props) {
         )}
       </div>
 
-      {/* Contenu texte */}
-      {post.content && (
-        <div className="px-4 sm:px-5 py-2 text-sm text-[#141414] whitespace-pre-wrap leading-relaxed break-words">
-          {post.content}
-        </div>
-      )}
-
-      {/* Média */}
+      {/* Média (en haut) */}
       {post.media_url && post.media_type === "image" && (
         <div className="bg-secondary flex items-center justify-center max-h-[80vh] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -154,6 +147,13 @@ export function PostCard({ post, userId, onChanged, onRepost, nested }: Props) {
             onChanged={onChanged}
             nested
           />
+        </div>
+      )}
+
+      {/* Contenu texte (en bas, sous le média) */}
+      {post.content && (
+        <div className="px-4 sm:px-5 pt-3 pb-2 text-sm text-[#141414] whitespace-pre-wrap leading-relaxed break-words">
+          {post.content}
         </div>
       )}
 
