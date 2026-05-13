@@ -135,7 +135,7 @@ export default function ProfesseurBibliothequesPage() {
             <span className={`text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full ${
               activeClass === "all" ? "bg-white/20 text-white" : "bg-muted-bg text-muted-fg"
             }`}>
-              {FILES.length}
+              {files.length}
             </span>
           </button>
 
@@ -153,7 +153,7 @@ export default function ProfesseurBibliothequesPage() {
               <span className={`text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full ${
                 activeClass === c ? "bg-white/20 text-white" : "bg-muted-bg text-muted-fg"
               }`}>
-                {FILES.filter((f) => f.classe === c).length}
+                {files.filter((f) => f.classe === c).length}
               </span>
             </button>
           ))}
