@@ -47,10 +47,14 @@ export function DashboardLayout({
   const [userName,       setUserName]       = useState(fallbackName);
   const [userInitials,   setUserInitials]   = useState(fallbackInitials);
   const [avatarUrl,      setAvatarUrl]      = useState<string | null>(null);
-  const [upcomingEvents, setUpcomingEvents] = useState<number>(0);
+  const [upcomingEvents,   setUpcomingEvents]   = useState<number>(0);
+  const [activeLives,      setActiveLives]      = useState<number>(0);
+  const [unreadMessages,   setUnreadMessages]   = useState<number>(0);
 
-  // Badge calendrier : seulement pour étudiants et professeurs
-  const showCalendarBadge = role === "student" || role === "professor";
+  // Badges : seulement pour étudiants et professeurs
+  const showCalendarBadge  = role === "student" || role === "professor";
+  const showLivesBadge     = role === "student" || role === "professor";
+  const showMessagesBadge  = role === "student" || role === "professor";
 
   async function loadUpcomingEvents() {
     if (!showCalendarBadge) return;
@@ -59,6 +63,21 @@ export function DashboardLayout({
       .select("id", { count: "exact", head: true })
       .gte("start_at", new Date().toISOString());
     setUpcomingEvents(count ?? 0);
+  }
+
+  async function loadActiveLives() {
+    if (!showLivesBadge) return;
+    const { count } = await supabase
+      .from("live_sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "live");
+    setActiveLives(count ?? 0);
+  }
+
+  async function loadUnreadMessages() {
+    if (!showMessagesBadge) return;
+    const { data } = await supabase.rpc("unread_total");
+    setUnreadMessages(typeof data === "number" ? data : 0);
   }
 
   useEffect(() => {
@@ -80,8 +99,17 @@ export function DashboardLayout({
     }
     loadProfile();
     loadUpcomingEvents();
+    loadActiveLives();
+    loadUnreadMessages();
 
-    // Écouter les mises à jour de profil depuis la page profil
+    // Polling pour les compteurs qui peuvent changer en arrière-plan
+    const livesInterval = showLivesBadge
+      ? setInterval(loadActiveLives, 30000)
+      : null;
+    const messagesInterval = showMessagesBadge
+      ? setInterval(loadUnreadMessages, 15000)
+      : null;
+
     function handleProfileUpdate(e: Event) {
       const detail = (e as CustomEvent<{ avatarUrl?: string | null; fullName?: string }>).detail;
       if (detail.avatarUrl !== undefined) setAvatarUrl(detail.avatarUrl);
@@ -90,26 +118,38 @@ export function DashboardLayout({
         setUserInitials(computeInitials(detail.fullName));
       }
     }
-    // Écouter les changements d'événements pour rafraîchir le badge
-    function handleEventsChanged() {
-      loadUpcomingEvents();
-    }
+    function handleEventsChanged()   { loadUpcomingEvents();  }
+    function handleLivesChanged()    { loadActiveLives();     }
+    function handleMessagesChanged() { loadUnreadMessages();  }
 
-    window.addEventListener("profile-updated", handleProfileUpdate);
+    window.addEventListener("profile-updated",         handleProfileUpdate);
     window.addEventListener("calendar-events-changed", handleEventsChanged);
+    window.addEventListener("lives-changed",           handleLivesChanged);
+    window.addEventListener("messages-changed",        handleMessagesChanged);
+
     return () => {
-      window.removeEventListener("profile-updated", handleProfileUpdate);
+      window.removeEventListener("profile-updated",         handleProfileUpdate);
       window.removeEventListener("calendar-events-changed", handleEventsChanged);
+      window.removeEventListener("lives-changed",           handleLivesChanged);
+      window.removeEventListener("messages-changed",        handleMessagesChanged);
+      if (livesInterval)    clearInterval(livesInterval);
+      if (messagesInterval) clearInterval(messagesInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Injection du badge calendrier dans les sections
+  // Injection des badges dynamiques dans les sections
   const enhancedSections = sections.map((section) => ({
     ...section,
     items: section.items.map((item) => {
       if (showCalendarBadge && item.href.endsWith("/calendrier") && upcomingEvents > 0) {
         return { ...item, badge: upcomingEvents };
+      }
+      if (showLivesBadge && item.href.endsWith("/live") && activeLives > 0) {
+        return { ...item, badge: activeLives };
+      }
+      if (showMessagesBadge && item.href.endsWith("/messagerie") && unreadMessages > 0) {
+        return { ...item, badge: unreadMessages };
       }
       return item;
     }),

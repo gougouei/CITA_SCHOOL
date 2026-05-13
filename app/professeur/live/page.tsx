@@ -14,15 +14,22 @@ interface LiveSession {
   started_at: string | null;
   room_url: string | null;
 }
+interface ActiveBroadcast {
+  id:         string;
+  title:      string;
+  started_at: string | null;
+  host_name:  string;
+}
 
 export default function ProfesseurLivePage() {
   const supabase = createClient();
   const [classes,    setClasses]    = useState<ClassOption[]>([]);
   const [activeLive, setActiveLive] = useState<LiveSession | null>(null);
+  const [broadcasts, setBroadcasts] = useState<ActiveBroadcast[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState<string | null>(null);
   const [showModal,  setShowModal]  = useState(false);
-  const [inRoom,     setInRoom]     = useState<string | null>(null);  // id de la session en cours
+  const [inRoom,     setInRoom]     = useState<string | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -31,13 +38,12 @@ export default function ProfesseurLivePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [myClassesRes, activeRes] = await Promise.all([
+      const [myClassesRes, activeRes, bcRes] = await Promise.all([
         supabase
           .from("class_members")
           .select("class_id, classes (id, name)")
           .eq("user_id", user.id)
           .eq("role", "professor"),
-        // Live en cours hébergé par ce prof
         supabase
           .from("live_sessions")
           .select("id, title, status, started_at, room_url")
@@ -46,6 +52,12 @@ export default function ProfesseurLivePage() {
           .order("started_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase
+          .from("live_sessions")
+          .select("id, title, started_at, host_id")
+          .eq("session_type", "broadcast")
+          .eq("status",       "live")
+          .order("started_at", { ascending: false }),
       ]);
 
       const classOpts: ClassOption[] = (myClassesRes.data ?? [])
@@ -56,8 +68,21 @@ export default function ProfesseurLivePage() {
         })
         .filter((c): c is ClassOption => c !== null);
 
+      // Récupérer les noms des hôtes des broadcasts
+      const broadcastList = bcRes.data ?? [];
+      const hostIds = Array.from(new Set(broadcastList.map((b) => b.host_id)));
+      const { data: hosts } = hostIds.length > 0
+        ? await supabase.from("profiles").select("id, full_name").in("id", hostIds)
+        : { data: [] };
+
       setClasses(classOpts);
       setActiveLive(activeRes.data ?? null);
+      setBroadcasts(broadcastList.map((b) => ({
+        id:         b.id,
+        title:      b.title,
+        started_at: b.started_at,
+        host_name:  (hosts ?? []).find((h) => h.id === b.host_id)?.full_name ?? "Administration",
+      })));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
@@ -85,6 +110,7 @@ export default function ProfesseurLivePage() {
 
     setShowModal(false);
     await loadData();
+    window.dispatchEvent(new CustomEvent("lives-changed"));
     setInRoom(body.session_id);
   }
 
@@ -98,15 +124,17 @@ export default function ProfesseurLivePage() {
     const body = await res.json();
     if (!res.ok) { setError(body.error ?? "Erreur"); return; }
     await loadData();
+    window.dispatchEvent(new CustomEvent("lives-changed"));
   }
 
-  // Si on est dans la room, afficher le lecteur Daily plein écran
-  if (inRoom && activeLive) {
+  // Si on est dans une room : isHost uniquement si c'est SON propre live
+  if (inRoom) {
+    const isOwnLive = activeLive && inRoom === activeLive.id;
     return (
       <LiveRoom
         sessionId={inRoom}
-        isHost
-        onEnd={endLive}
+        isHost={!!isOwnLive}
+        onEnd={isOwnLive ? endLive : undefined}
         onLeave={() => { setInRoom(null); loadData(); }}
       />
     );
@@ -197,6 +225,51 @@ export default function ProfesseurLivePage() {
               </Button>
             </div>
           </Card>
+        )}
+
+        {/* Section broadcasts admin */}
+        {broadcasts.length > 0 && (
+          <div className="mt-6 sm:mt-8">
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
+                Broadcasts en cours
+              </h2>
+              <span className="text-[0.7rem] text-muted-fg">
+                — {broadcasts.length} diffusion{broadcasts.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+              {broadcasts.map((b) => (
+                <Card key={b.id}>
+                  <div className="p-5 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-2 bg-[hsla(0,84%,60%,0.12)] text-destructive px-3 py-1 rounded-full text-[0.7rem] font-bold uppercase tracking-wider">
+                        <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
+                        En direct
+                      </div>
+                      <span className="text-[0.7rem] font-bold uppercase tracking-wider text-citsa-red-hex bg-[hsla(0,84%,60%,0.08)] px-2 py-1 rounded-full">
+                        Broadcast général
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="font-serif text-base font-semibold text-[#141414] mb-0.5">
+                        {b.title}
+                      </h3>
+                      <p className="text-[0.78rem] text-muted-fg">{b.host_name}</p>
+                      {b.started_at && (
+                        <p className="text-[0.7rem] text-muted-fg mt-0.5">
+                          Démarré à {new Date(b.started_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="accent" size="sm" className="w-full" onClick={() => setInRoom(b.id)}>
+                      Rejoindre le broadcast
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

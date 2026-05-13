@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const { data: session } = await supabase
     .from("live_sessions")
-    .select("id, host_id, status, room_name, room_url, title")
+    .select("id, host_id, status, room_name, room_url, title, session_type")
     .eq("id", session_id)
     .single();
 
@@ -30,10 +30,11 @@ export async function POST(request: Request) {
   if (session.status !== "live") return NextResponse.json({ error: "Le cours n'est pas en direct" }, { status: 409 });
   if (!session.room_name)        return NextResponse.json({ error: "Room invalide" }, { status: 500 });
 
-  const [{ data: profile }, { data: links }] = await Promise.all([
-    supabase.from("profiles").select("full_name, role").eq("id", user.id).single(),
-    supabase.from("live_session_classes").select("class_id").eq("live_session_id", session_id),
-  ]);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, role")
+    .eq("id", user.id)
+    .single();
 
   if (!profile) return NextResponse.json({ error: "Profil introuvable" }, { status: 403 });
 
@@ -42,16 +43,27 @@ export async function POST(request: Request) {
   let allowed   = isHost || isAdmin;
 
   if (!allowed) {
-    const classIds = (links ?? []).map((l) => l.class_id);
-    if (classIds.length > 0) {
-      const { data: membership } = await supabase
-        .from("class_members")
+    if (session.session_type === "broadcast") {
+      // Un broadcast est accessible à tous les utilisateurs authentifiés
+      allowed = true;
+    } else {
+      // Cours de classe : l'utilisateur doit être membre d'une classe liée
+      const { data: links } = await supabase
+        .from("live_session_classes")
         .select("class_id")
-        .eq("user_id", user.id)
-        .in("class_id", classIds)
-        .limit(1);
+        .eq("live_session_id", session_id);
 
-      allowed = (membership?.length ?? 0) > 0;
+      const classIds = (links ?? []).map((l) => l.class_id);
+      if (classIds.length > 0) {
+        const { data: membership } = await supabase
+          .from("class_members")
+          .select("class_id")
+          .eq("user_id", user.id)
+          .in("class_id", classIds)
+          .limit(1);
+
+        allowed = (membership?.length ?? 0) > 0;
+      }
     }
   }
 

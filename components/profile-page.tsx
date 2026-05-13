@@ -16,6 +16,13 @@ interface Profile {
   created_at: string;
 }
 
+interface MyClass {
+  id:           string;
+  name:         string;
+  description:  string;
+  studentCount: number;
+}
+
 const MAX_AVATAR_BYTES = 3 * 1024 * 1024; // 3 MB
 const ACCEPTED_TYPES   = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -42,13 +49,15 @@ export function ProfilePage() {
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profile,    setProfile]    = useState<Profile | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-  const [success,    setSuccess]    = useState<string | null>(null);
-  const [uploading,  setUploading]  = useState(false);
-  const [fullName,   setFullName]   = useState("");
-  const [saving,     setSaving]     = useState(false);
+  const [profile,        setProfile]        = useState<Profile | null>(null);
+  const [myClasses,      setMyClasses]      = useState<MyClass[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [loading,        setLoading]        = useState(true);
+  const [error,          setError]          = useState<string | null>(null);
+  const [success,        setSuccess]        = useState<string | null>(null);
+  const [uploading,      setUploading]      = useState(false);
+  const [fullName,       setFullName]       = useState("");
+  const [saving,         setSaving]         = useState(false);
 
   async function loadProfile() {
     setLoading(true);
@@ -66,10 +75,52 @@ export function ProfilePage() {
       if (error) throw error;
       setProfile(data);
       setFullName(data.full_name);
+
+      // Charger les classes uniquement pour étudiant et professeur
+      if (data.role === "student" || data.role === "professor") {
+        await loadMyClasses(user.id, data.role);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadMyClasses(userId: string, role: "student" | "professor") {
+    setClassesLoading(true);
+    try {
+      // 1. IDs des classes dont je suis membre dans mon rôle
+      const { data: myMemberships } = await supabase
+        .from("class_members")
+        .select("class_id")
+        .eq("user_id", userId)
+        .eq("role",    role);
+
+      const classIds = (myMemberships ?? []).map((m) => m.class_id);
+      if (classIds.length === 0) {
+        setMyClasses([]);
+        return;
+      }
+
+      // 2. Détails des classes + nombre d'étudiants
+      const [classesRes, allMembersRes] = await Promise.all([
+        supabase.from("classes").select("id, name, description").in("id", classIds).order("name"),
+        supabase.from("class_members").select("class_id, role").in("class_id", classIds),
+      ]);
+
+      const enriched: MyClass[] = (classesRes.data ?? []).map((c) => ({
+        id:           c.id,
+        name:         c.name,
+        description:  c.description ?? "",
+        studentCount: (allMembersRes.data ?? []).filter(
+          (m) => m.class_id === c.id && m.role === "student"
+        ).length,
+      }));
+
+      setMyClasses(enriched);
+    } finally {
+      setClassesLoading(false);
     }
   }
 
@@ -347,6 +398,64 @@ export function ProfilePage() {
             </div>
           </div>
         </Card>
+
+        {/* Classes — uniquement pour étudiants et professeurs */}
+        {(profile.role === "student" || profile.role === "professor") && (
+          <Card>
+            <div className="px-6 py-5 border-b border-border">
+              <h2 className="font-serif text-base font-semibold">
+                {profile.role === "student" ? "Mes classes" : "Classes enseignées"}
+              </h2>
+              <p className="text-[0.78rem] text-muted-fg mt-0.5">
+                {profile.role === "student"
+                  ? "Classes auxquelles vous êtes inscrit"
+                  : "Classes qui vous sont assignées par l'administration"}
+              </p>
+            </div>
+
+            <div className="p-6">
+              {classesLoading ? (
+                <p className="text-center text-muted-fg text-sm py-4">Chargement…</p>
+              ) : myClasses.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-[#141414] font-medium text-sm mb-1">Aucune classe assignée</p>
+                  <p className="text-[0.78rem] text-muted-fg max-w-md mx-auto">
+                    {profile.role === "student"
+                      ? "Contactez l'administration de CITSA pour être inscrit à une classe."
+                      : "Contactez l'administration pour qu'une classe vous soit assignée."}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {myClasses.map((c) => (
+                    <div
+                      key={c.id}
+                      className="border border-border rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-[hsla(280,60%,50%,0.12)] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-[hsl(280,60%,40%)]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#141414]">{c.name}</p>
+                        {c.description && (
+                          <p className="text-[0.72rem] text-muted-fg line-clamp-2 mt-0.5">
+                            {c.description}
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant="muted" className="text-[0.65rem] flex-shrink-0">
+                        {c.studentCount} étudiant{c.studentCount > 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
 
         <div className="bg-muted-bg rounded-xl px-4 py-3 flex items-start gap-2">
           <svg className="w-4 h-4 text-muted-fg flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
