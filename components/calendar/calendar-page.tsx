@@ -126,6 +126,11 @@ export function CalendarPage({ role }: CalendarPageProps) {
       .slice(0, 6);
   }, [events]);
 
+  // Notifie la sidebar pour rafraîchir le badge "événements à venir"
+  function notifyEventsChanged() {
+    window.dispatchEvent(new CustomEvent("calendar-events-changed"));
+  }
+
   // ─── Actions CRUD ──────────────────────────────────────────────────────────
   async function handleCreate(data: EventInput) {
     if (!userId) return;
@@ -142,6 +147,7 @@ export function CalendarPage({ role }: CalendarPageProps) {
     if (error) throw error;
     setCreating({ open: false });
     await loadData();
+    notifyEventsChanged();
   }
 
   async function handleEdit(data: EventInput) {
@@ -162,6 +168,7 @@ export function CalendarPage({ role }: CalendarPageProps) {
     setEditing(null);
     setSelected(null);
     await loadData();
+    notifyEventsChanged();
   }
 
   async function handleDelete() {
@@ -171,6 +178,7 @@ export function CalendarPage({ role }: CalendarPageProps) {
     if (error) { setError(error.message); return; }
     setSelected(null);
     await loadData();
+    notifyEventsChanged();
   }
 
   function canEditEvent(e: CalendarEvent) {

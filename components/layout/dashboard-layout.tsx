@@ -43,10 +43,23 @@ export function DashboardLayout({
   userInitials: fallbackInitials = "U",
 }: DashboardLayoutProps) {
   const supabase = createClient();
-  const [sidebarOpen,  setSidebarOpen]  = useState(false);
-  const [userName,     setUserName]     = useState(fallbackName);
-  const [userInitials, setUserInitials] = useState(fallbackInitials);
-  const [avatarUrl,    setAvatarUrl]    = useState<string | null>(null);
+  const [sidebarOpen,    setSidebarOpen]    = useState(false);
+  const [userName,       setUserName]       = useState(fallbackName);
+  const [userInitials,   setUserInitials]   = useState(fallbackInitials);
+  const [avatarUrl,      setAvatarUrl]      = useState<string | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<number>(0);
+
+  // Badge calendrier : seulement pour étudiants et professeurs
+  const showCalendarBadge = role === "student" || role === "professor";
+
+  async function loadUpcomingEvents() {
+    if (!showCalendarBadge) return;
+    const { count } = await supabase
+      .from("calendar_events")
+      .select("id", { count: "exact", head: true })
+      .gte("start_at", new Date().toISOString());
+    setUpcomingEvents(count ?? 0);
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -66,6 +79,7 @@ export function DashboardLayout({
       }
     }
     loadProfile();
+    loadUpcomingEvents();
 
     // Écouter les mises à jour de profil depuis la page profil
     function handleProfileUpdate(e: Event) {
@@ -76,10 +90,30 @@ export function DashboardLayout({
         setUserInitials(computeInitials(detail.fullName));
       }
     }
+    // Écouter les changements d'événements pour rafraîchir le badge
+    function handleEventsChanged() {
+      loadUpcomingEvents();
+    }
+
     window.addEventListener("profile-updated", handleProfileUpdate);
-    return () => window.removeEventListener("profile-updated", handleProfileUpdate);
+    window.addEventListener("calendar-events-changed", handleEventsChanged);
+    return () => {
+      window.removeEventListener("profile-updated", handleProfileUpdate);
+      window.removeEventListener("calendar-events-changed", handleEventsChanged);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Injection du badge calendrier dans les sections
+  const enhancedSections = sections.map((section) => ({
+    ...section,
+    items: section.items.map((item) => {
+      if (showCalendarBadge && item.href.endsWith("/calendrier") && upcomingEvents > 0) {
+        return { ...item, badge: upcomingEvents };
+      }
+      return item;
+    }),
+  }));
 
   const roleLabel =
     role === "admin"     ? "CITSA Admin"       :
@@ -92,7 +126,7 @@ export function DashboardLayout({
         userName={userName}
         userInitials={userInitials}
         avatarUrl={avatarUrl}
-        sections={sections}
+        sections={enhancedSections}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
