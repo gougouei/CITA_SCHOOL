@@ -126,11 +126,23 @@ export function PostCard({ post, userId, onChanged, onRepost, nested }: Props) {
 
       {/* Média */}
       {post.media_url && post.media_type === "image" && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={post.media_url} alt="" className="w-full max-h-[600px] object-cover" />
+        <div className="bg-secondary flex items-center justify-center max-h-[80vh] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.media_url}
+            alt=""
+            className="max-h-[80vh] max-w-full w-auto h-auto object-contain"
+          />
+        </div>
       )}
       {post.media_url && post.media_type === "video" && (
-        <video src={post.media_url} controls className="w-full max-h-[600px] bg-black" />
+        <div className="bg-black flex items-center justify-center max-h-[80vh]">
+          <video
+            src={post.media_url}
+            controls
+            className="max-h-[80vh] max-w-full w-auto h-auto"
+          />
+        </div>
       )}
 
       {/* Post partagé (repost) */}

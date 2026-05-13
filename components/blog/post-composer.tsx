@@ -124,16 +124,24 @@ export function PostComposer({ userId, userName, userAvatar, onPosted }: Props) 
 
           {/* Preview du fichier sélectionné */}
           {preview && file && (
-            <div className="mt-3 relative inline-block max-w-full">
+            <div className="mt-3 relative w-full bg-secondary rounded-xl overflow-hidden flex items-center justify-center max-h-[500px]">
               {file.type.startsWith("video/") ? (
-                <video src={preview} controls className="max-h-72 rounded-xl bg-black" />
+                <video
+                  src={preview}
+                  controls
+                  className="max-h-[500px] max-w-full w-auto h-auto bg-black"
+                />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={preview} alt="Aperçu" className="max-h-72 rounded-xl object-cover" />
+                <img
+                  src={preview}
+                  alt="Aperçu"
+                  className="max-h-[500px] max-w-full w-auto h-auto object-contain"
+                />
               )}
               <button
                 onClick={removeFile}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors z-10"
                 aria-label="Retirer"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
