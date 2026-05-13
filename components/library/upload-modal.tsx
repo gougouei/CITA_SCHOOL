@@ -23,11 +23,15 @@ interface Props {
 export function UploadModal({ classes, onClose, onUploaded }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [file,       setFile]       = useState<File | null>(null);
-  const [classId,    setClassId]    = useState<string>(classes[0]?.id ?? "");
-  const [progress,   setProgress]   = useState(0);
-  const [uploading,  setUploading]  = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+  const [file,        setFile]        = useState<File | null>(null);
+  const [classIds,    setClassIds]    = useState<string[]>([]);
+  const [progress,    setProgress]    = useState(0);
+  const [uploading,   setUploading]   = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+
+  function toggleClass(id: string) {
+    setClassIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     setError(null);
@@ -47,8 +51,12 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
   }
 
   async function handleUpload() {
-    if (!file || !classId) {
-      setError("Sélectionnez un fichier et une classe.");
+    if (!file) {
+      setError("Sélectionnez un fichier.");
+      return;
+    }
+    if (classIds.length === 0) {
+      setError("Sélectionnez au moins une classe.");
       return;
     }
     setError(null);
@@ -57,7 +65,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
 
     const form = new FormData();
     form.append("file", file);
-    form.append("class_id", classId);
+    form.append("class_ids", JSON.stringify(classIds));
 
     try {
       // XHR pour avoir la progression
@@ -183,27 +191,66 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
             )}
           </div>
 
-          {/* Classe */}
+          {/* Classes — multi-sélection */}
           <div>
-            <label className="block text-[0.78rem] font-semibold mb-1.5">
-              Classe destinataire <span className="text-citsa-red-hex">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[0.78rem] font-semibold">
+                Classes autorisées <span className="text-citsa-red-hex">*</span>
+              </label>
+              {classes.length > 0 && (
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => {
+                    if (classIds.length === classes.length) setClassIds([]);
+                    else                                     setClassIds(classes.map((c) => c.id));
+                  }}
+                  className="text-[0.7rem] text-citsa-red-hex hover:underline"
+                >
+                  {classIds.length === classes.length ? "Tout désélectionner" : "Tout sélectionner"}
+                </button>
+              )}
+            </div>
+
             {classes.length === 0 ? (
               <p className="text-[0.78rem] text-muted-fg italic">
                 Aucune classe disponible. Créez-en une d&apos;abord.
               </p>
             ) : (
-              <select
-                value={classId}
-                onChange={(e) => setClassId(e.target.value)}
-                disabled={uploading}
-                className="w-full border border-border rounded-md px-3 h-10 text-sm outline-none focus:border-citsa-red-hex transition-colors bg-white"
-              >
-                {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
+                {classes.map((c) => {
+                  const checked = classIds.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      disabled={uploading}
+                      onClick={() => toggleClass(c.id)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-all disabled:opacity-50 ${
+                        checked
+                          ? "border-citsa-red-hex bg-[hsla(0,75%,45%,0.04)]"
+                          : "border-border hover:border-[#c0c0c0]"
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border-2 transition-colors ${
+                        checked ? "bg-citsa-red-hex border-citsa-red-hex" : "border-border bg-white"
+                      }`}>
+                        {checked && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-sm text-[#141414]">{c.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
-            <p className="text-[0.72rem] text-muted-fg mt-1.5">
-              Seuls les membres de cette classe pourront consulter le fichier.
+            <p className="text-[0.72rem] text-muted-fg mt-2">
+              {classIds.length === 0
+                ? "Cochez les classes qui auront accès à ce fichier."
+                : `${classIds.length} classe${classIds.length > 1 ? "s" : ""} sélectionnée${classIds.length > 1 ? "s" : ""}`}
             </p>
           </div>
 
@@ -237,7 +284,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
 
         <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} disabled={uploading}>Annuler</Button>
-          <Button variant="accent" onClick={handleUpload} disabled={!file || !classId || uploading}>
+          <Button variant="accent" onClick={handleUpload} disabled={!file || classIds.length === 0 || uploading}>
             {uploading ? "Upload…" : "Téléverser"}
           </Button>
         </div>

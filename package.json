@@ -17,6 +17,7 @@
     "next": "^15.5.18",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-pdf": "^10.4.1",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {

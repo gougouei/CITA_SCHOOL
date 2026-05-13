@@ -35,12 +35,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Requête invalide" }, { status: 400 });
   }
 
-  const file     = form.get("file");
-  const classId  = form.get("class_id");
+  const file        = form.get("file");
+  const classIdsRaw = form.get("class_ids");
 
-  if (!(file instanceof File))        return NextResponse.json({ error: "Fichier requis" }, { status: 400 });
-  if (typeof classId !== "string")    return NextResponse.json({ error: "class_id requis" }, { status: 400 });
-  if (file.size === 0)                return NextResponse.json({ error: "Fichier vide" }, { status: 400 });
+  if (!(file instanceof File))     return NextResponse.json({ error: "Fichier requis" }, { status: 400 });
+  if (file.size === 0)             return NextResponse.json({ error: "Fichier vide" }, { status: 400 });
+  if (typeof classIdsRaw !== "string") {
+    return NextResponse.json({ error: "class_ids requis" }, { status: 400 });
+  }
+
+  let classIds: string[];
+  try {
+    classIds = JSON.parse(classIdsRaw);
+    if (!Array.isArray(classIds) || classIds.length === 0) {
+      return NextResponse.json({ error: "Sélectionnez au moins une classe" }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json({ error: "class_ids invalide" }, { status: 400 });
+  }
 
   // Détecter le type
   function detectType(mime: string, name: string): "pdf" | "video" | "audio" | "pptx" | "other" {
@@ -52,13 +64,14 @@ export async function POST(request: Request) {
   }
   const fileType = detectType(file.type, file.name);
 
-  // Vérifier que la classe existe
+  // Vérifier que toutes les classes existent
   const { data: cls } = await supabase
     .from("classes")
     .select("id, name")
-    .eq("id", classId)
-    .single();
-  if (!cls) return NextResponse.json({ error: "Classe introuvable" }, { status: 404 });
+    .in("id", classIds);
+  if (!cls || cls.length !== classIds.length) {
+    return NextResponse.json({ error: "Une ou plusieurs classes sont introuvables" }, { status: 404 });
+  }
 
   // Service-role client pour bypasser RLS storage + library_classes inserts
   const adminClient = createAdminClient(
@@ -66,42 +79,29 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // ─── Trouver ou créer la bibliothèque de la classe ─────────────────────────
-  // 1. Chercher une bibliothèque déjà liée à cette classe
-  const { data: existingLink } = await adminClient
-    .from("library_classes")
-    .select("library_id")
-    .eq("class_id", classId)
-    .limit(1)
-    .maybeSingle();
+  // ─── Créer une bibliothèque dédiée pour ce fichier ─────────────────────────
+  // (une biblio par fichier permet de modifier les classes assignées plus tard
+  // sans impacter les autres fichiers)
+  const classNames = cls.map((c) => c.name).join(", ");
+  const { data: newLib, error: libError } = await adminClient
+    .from("libraries")
+    .insert({
+      name:        file.name,
+      description: `Accessible par : ${classNames}`,
+      created_by:  user.id,
+    })
+    .select("id")
+    .single();
 
-  let libraryId: string;
-
-  if (existingLink) {
-    libraryId = existingLink.library_id;
-  } else {
-    // Créer une bibliothèque pour cette classe
-    const { data: newLib, error: libError } = await adminClient
-      .from("libraries")
-      .insert({
-        name:        `Bibliothèque — ${cls.name}`,
-        description: `Documents de la classe ${cls.name}`,
-        created_by:  user.id,
-      })
-      .select("id")
-      .single();
-
-    if (libError || !newLib) {
-      return NextResponse.json({ error: libError?.message ?? "Erreur création bibliothèque" }, { status: 500 });
-    }
-    libraryId = newLib.id;
-
-    // Lier à la classe
-    await adminClient.from("library_classes").insert({
-      library_id: libraryId,
-      class_id:   classId,
-    });
+  if (libError || !newLib) {
+    return NextResponse.json({ error: libError?.message ?? "Erreur création bibliothèque" }, { status: 500 });
   }
+  const libraryId = newLib.id;
+
+  // Lier à toutes les classes
+  await adminClient.from("library_classes").insert(
+    classIds.map((cid) => ({ library_id: libraryId, class_id: cid }))
+  );
 
   // ─── Uploader le fichier ───────────────────────────────────────────────────
   const ext  = file.name.split(".").pop()?.toLowerCase() ?? "bin";
