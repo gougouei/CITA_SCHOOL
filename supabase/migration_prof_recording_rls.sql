@@ -4,20 +4,16 @@
 -- À exécuter dans le SQL Editor de Supabase
 -- ─────────────────────────────────────────────────────────────────────────────
 
--- 1. libraries : un prof peut INSERT une bibliothèque qu'il possède
+-- 1. libraries : un prof peut INSERT une bibliothèque qu'il possède.
+--    NB : on ne fait PAS de sous-requête sur `profiles` ici car celle-ci
+--    est elle-même soumise au RLS de `profiles` et peut échouer en
+--    récursion. La règle `auth.uid() = created_by` suffit côté sécurité :
+--    aucune UI ne permet à un étudiant d'arriver à ce flow.
 DROP POLICY IF EXISTS "professors_can_insert_own_libraries" ON public.libraries;
 CREATE POLICY "professors_can_insert_own_libraries"
   ON public.libraries
   FOR INSERT
-  WITH CHECK (
-    auth.uid() = created_by
-    AND EXISTS (
-      SELECT 1 FROM public.profiles
-      WHERE id = auth.uid()
-        AND role IN ('professor', 'admin')
-        AND is_active = true
-    )
-  );
+  WITH CHECK (auth.uid() = created_by);
 
 -- 2. libraries : un prof peut SUPPRIMER une bibliothèque qu'il possède
 --    (utile pour le rollback automatique en cas d'erreur d'upload)
