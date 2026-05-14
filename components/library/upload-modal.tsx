@@ -361,9 +361,10 @@ function uploadWithProgress(
       else reject(new Error(`Upload échoué (${xhr.status})`));
     };
     xhr.onerror = () => reject(new Error("Erreur réseau"));
-    // Le Content-Type est implicitement géré par Supabase, mais on le précise
     xhr.open("PUT", signedUrl);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    // Supabase Storage attend un MIME sans paramètres (ex: "video/webm" et non "video/webm;codecs=vp9,opus")
+    const contentType = (file.type || "application/octet-stream").split(";")[0].trim();
+    xhr.setRequestHeader("Content-Type", contentType);
     xhr.send(file);
   });
 }

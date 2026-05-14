@@ -225,11 +225,13 @@ function uploadWithProgress(signedUrl: string, file: File, onProgress: (pct: num
     };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`Upload échoué (${xhr.status})`));
+      else reject(new Error(`Upload échoué (${xhr.status}) — ${xhr.responseText?.slice(0, 200) || "détails indisponibles"}`));
     };
     xhr.onerror = () => reject(new Error("Erreur réseau"));
     xhr.open("PUT", signedUrl);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    // Supabase Storage attend un MIME sans paramètres (ex: "video/webm" et non "video/webm;codecs=vp9,opus")
+    const contentType = (file.type || "application/octet-stream").split(";")[0].trim();
+    xhr.setRequestHeader("Content-Type", contentType);
     xhr.send(file);
   });
 }
