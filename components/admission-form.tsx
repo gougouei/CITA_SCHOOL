@@ -408,22 +408,29 @@ function DateOfBirthPicker({
   value: string;             // ISO YYYY-MM-DD
   onChange: (iso: string) => void;
 }) {
-  const [y, m, d] = value
-    ? value.split("-").map((p) => p.padStart(2, "0"))
-    : ["", "", ""];
+  // Hydrate l'état initial depuis la valeur ISO si présente
+  const initial = value && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? { y: value.slice(0, 4), m: value.slice(5, 7), d: value.slice(8, 10) }
+    : { y: "", m: "", d: "" };
+
+  const [parts, setParts] = useState(initial);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
   const days  = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, "0"));
 
   function update(part: "y" | "m" | "d", v: string) {
-    const next = { y, m, d, [part]: v };
+    const next = { ...parts, [part]: v };
+    setParts(next);
+    // On ne remonte l'ISO que quand TOUTES les parties sont remplies
     if (next.y && next.m && next.d) {
       onChange(`${next.y}-${next.m}-${next.d}`);
     } else {
       onChange("");
     }
   }
+
+  const { y, m, d } = parts;
 
   return (
     <div className="grid grid-cols-3 gap-2">
