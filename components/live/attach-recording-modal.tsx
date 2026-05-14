@@ -2,12 +2,11 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase";
 
 interface Props {
   sessionId:    string;
   sessionTitle: string;
-  liveClassIds: string[]; // classes liées au live → pour assigner la nouvelle vidéo
+  liveClassIds: string[]; // gardé pour compat — les classes sont aussi calculées côté serveur
   initialFile?: File | null; // fichier pré-chargé (depuis l'enregistreur in-app)
   onClose:      () => void;
   onAttached:   () => void;
@@ -16,9 +15,8 @@ interface Props {
 const MAX_BYTES = 1024 * 1024 * 1024; // 1 GB
 
 export function AttachRecordingModal({
-  sessionId, sessionTitle, liveClassIds, initialFile, onClose, onAttached,
+  sessionId, sessionTitle, initialFile, onClose, onAttached,
 }: Props) {
-  const supabase     = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file,      setFile]      = useState<File | null>(initialFile ?? null);
@@ -63,77 +61,39 @@ export function AttachRecordingModal({
     setProgress(0);
     setStatus("Préparation…");
 
-    let libraryId:  string | null = null;
-    let storagePath: string | null = null;
-    let fileRowId:  string | null = null;
-
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Non authentifié");
+      // 1. Prepare : le serveur crée la library + génère l'URL signée
+      const prepRes = await fetch("/api/professor/recording-prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, file_name: file.name }),
+      });
+      const prep = await prepRes.json();
+      if (!prepRes.ok) throw new Error(prep.error ?? "Erreur préparation");
 
-      // 1. Créer la library
-      const { data: newLib, error: libError } = await supabase
-        .from("libraries")
-        .insert({
-          name:        `Enregistrement — ${sessionTitle}`,
-          description: `Enregistrement du cours live « ${sessionTitle} »`,
-          created_by:  user.id,
-        })
-        .select("id")
-        .single();
-      if (libError || !newLib) throw new Error(libError?.message ?? "Erreur création bibliothèque");
-      libraryId = newLib.id;
-
-      // 2. Lier aux classes du live (pour que les étudiants y aient accès)
-      if (liveClassIds.length > 0) {
-        const { error: linksError } = await supabase
-          .from("library_classes")
-          .insert(liveClassIds.map((cid) => ({ library_id: libraryId, class_id: cid })));
-        if (linksError) throw new Error(linksError.message);
-      }
-
-      // 3. URL signée pour upload direct
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "mp4";
-      storagePath = `${libraryId}/${crypto.randomUUID()}.${ext}`;
-      const { data: signed, error: signError } = await supabase.storage
-        .from("library-files")
-        .createSignedUploadUrl(storagePath);
-      if (signError || !signed) throw new Error(signError?.message ?? "Erreur URL d'upload");
-
-      // 4. Upload avec progression
+      // 2. Upload direct vers Supabase Storage avec progression
       setStatus("Upload en cours…");
-      await uploadWithProgress(signed.signedUrl, file, (pct) => setProgress(pct));
+      await uploadWithProgress(prep.signed_url, file, (pct) => setProgress(pct));
 
-      // 5. Enregistrer dans library_files
+      // 3. Finalize : le serveur crée library_files + attache au live
       setStatus("Finalisation…");
-      const { data: fileRow, error: fileError } = await supabase.from("library_files").insert({
-        library_id:   libraryId,
-        file_name:    file.name,
-        file_type:    "video",
-        file_size:    file.size,
-        storage_path: storagePath,
-        uploaded_by:  user.id,
-      }).select("id").single();
-      if (fileError || !fileRow) throw new Error(fileError?.message ?? "Erreur enregistrement");
-      fileRowId = fileRow.id;
-
-      // 6. Attacher au live
-      const { error: attachError } = await supabase
-        .from("live_sessions")
-        .update({ recording_file_id: fileRowId })
-        .eq("id", sessionId);
-      if (attachError) throw new Error(attachError.message);
+      const finalRes = await fetch("/api/professor/recording-finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id:   sessionId,
+          library_id:   prep.library_id,
+          storage_path: prep.storage_path,
+          file_name:    file.name,
+          file_size:    file.size,
+        }),
+      });
+      const final = await finalRes.json();
+      if (!finalRes.ok) throw new Error(final.error ?? "Erreur finalisation");
 
       onAttached();
       onClose();
     } catch (e) {
-      // Rollback
-      if (libraryId) {
-        try { await supabase.from("libraries").delete().eq("id", libraryId); } catch { /* ignore */ }
-      }
-      if (storagePath) {
-        try { await supabase.storage.from("library-files").remove([storagePath]); } catch { /* ignore */ }
-      }
       setError(e instanceof Error ? e.message : "Erreur d'upload");
     } finally {
       setWorking(false);
