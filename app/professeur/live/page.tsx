@@ -185,6 +185,26 @@ export default function ProfesseurLivePage() {
     window.dispatchEvent(new CustomEvent("lives-changed"));
   }
 
+  async function deleteRecording(l: EndedLive) {
+    if (!l.recording) return;
+    if (!confirm(`Supprimer l'enregistrement de « ${l.title} » ? La vidéo sera retirée de la bibliothèque et les étudiants n'y auront plus accès. Cette action est irréversible.`)) {
+      return;
+    }
+    setError(null);
+    try {
+      const res = await fetch("/api/professor/recording-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: l.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur de suppression");
+      await loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur de suppression");
+    }
+  }
+
   async function handleRecordingReady(file: File) {
     if (!inRoom) return;
     // Récupérer le titre et les classes liées au live au moment de l'enregistrement
@@ -377,8 +397,32 @@ export default function ProfesseurLivePage() {
                             <Button variant="accent" size="sm" className="flex-1" onClick={() => setReplayLive(l)}>
                               Voir l&apos;enregistrement
                             </Button>
-                            <Button variant="outline" size="sm" onClick={() => setAttachLive(l)}>
-                              Remplacer
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAttachLive(l)}
+                              title="Remplacer l'enregistrement"
+                              aria-label="Remplacer"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <polyline points="23 4 23 10 17 10"/>
+                                <polyline points="1 20 1 14 7 14"/>
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                              </svg>
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => deleteRecording(l)}
+                              title="Supprimer l'enregistrement"
+                              aria-label="Supprimer"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <polyline points="3 6 5 6 21 6"/>
+                                <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+                                <path d="M10 11v6M14 11v6"/>
+                                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+                              </svg>
                             </Button>
                           </>
                         ) : (
