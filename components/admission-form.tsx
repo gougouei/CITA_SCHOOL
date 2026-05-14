@@ -282,15 +282,11 @@ export function AdmissionForm() {
           />
         </div>
 
-        {/* Date de naissance */}
+        {/* Date de naissance — 3 sélecteurs (plus fiables que le date picker natif) */}
         <Field label="Date de naissance" required>
-          <input
-            type="date"
+          <DateOfBirthPicker
             value={form.date_of_birth}
-            onChange={(e) => update("date_of_birth", e.target.value)}
-            required
-            max={new Date().toISOString().split("T")[0]}
-            className={inputCls}
+            onChange={(iso) => update("date_of_birth", iso)}
           />
         </Field>
 
@@ -399,6 +395,73 @@ export function AdmissionForm() {
 }
 
 const inputCls = "font-sans text-sm bg-white border border-border rounded-md px-[0.875rem] h-10 outline-none focus:border-citsa-red-hex focus:shadow-[0_0_0_2px_rgba(201,29,29,0.15)] transition-all";
+
+// ─── Sélecteur de date 3 colonnes (Jour / Mois / Année) ─────────────────────
+const MONTHS_FR = [
+  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+];
+
+function DateOfBirthPicker({
+  value, onChange,
+}: {
+  value: string;             // ISO YYYY-MM-DD
+  onChange: (iso: string) => void;
+}) {
+  const [y, m, d] = value
+    ? value.split("-").map((p) => p.padStart(2, "0"))
+    : ["", "", ""];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 100 }, (_, i) => currentYear - i);
+  const days  = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, "0"));
+
+  function update(part: "y" | "m" | "d", v: string) {
+    const next = { y, m, d, [part]: v };
+    if (next.y && next.m && next.d) {
+      onChange(`${next.y}-${next.m}-${next.d}`);
+    } else {
+      onChange("");
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <select
+        value={d}
+        onChange={(e) => update("d", e.target.value)}
+        required
+        aria-label="Jour"
+        className={inputCls}
+      >
+        <option value="">Jour</option>
+        {days.map((dd) => <option key={dd} value={dd}>{dd}</option>)}
+      </select>
+      <select
+        value={m}
+        onChange={(e) => update("m", e.target.value)}
+        required
+        aria-label="Mois"
+        className={inputCls}
+      >
+        <option value="">Mois</option>
+        {MONTHS_FR.map((label, i) => (
+          <option key={label} value={(i + 1).toString().padStart(2, "0")}>{label}</option>
+        ))}
+      </select>
+      <select
+        value={y}
+        onChange={(e) => update("y", e.target.value)}
+        required
+        aria-label="Année"
+        className={inputCls}
+      >
+        <option value="">Année</option>
+        {years.map((yr) => <option key={yr} value={yr.toString()}>{yr}</option>)}
+      </select>
+    </div>
+  );
+}
 
 function Field({
   label,
