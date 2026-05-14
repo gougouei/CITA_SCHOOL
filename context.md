@@ -1,7 +1,7 @@
 # CITSA OCCULTE SCHOOL INTERNATIONAL — Contexte Projet
 
 > Fichier de référence complet. Redonner ce fichier à Claude Code en début de session pour restaurer tout le contexte.
-> **Dernière mise à jour : v0.7.1**
+> **Dernière mise à jour : v0.8.0**
 
 ---
 
@@ -13,7 +13,7 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 **Repo GitHub :** https://github.com/gougouei/CITA_SCHOOL
 **Répertoire local :** `/Users/mac/Documents/cita_school`
 **Branche principale :** `main`
-**Dernière version taguée :** `v0.7.1`
+**Dernière version taguée :** `v0.8.0`
 **Déploiement :** Vercel (auto-déploie chaque push sur `main`)
 
 ---
@@ -102,7 +102,7 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 | `class_members` | Lien classe ↔ user (role professor/student) |
 | `libraries` + `library_classes` + `library_files` | Bibliothèques de fichiers · 1 lib par fichier liée à N classes |
 | `admission_requests` | Demandes d'admission (toutes infos + photo + email + nombre enfants) |
-| `live_sessions` + `live_session_classes` | Cours en direct + broadcasts |
+| `live_sessions` + `live_session_classes` | Cours en direct + broadcasts · colonne `recording_file_id` → `library_files` pour replay |
 | `exercises` + `exercise_questions` + `exercise_submissions` | Exercices/QCM (schéma prêt, UI à venir) |
 | `chat_channels` + `chat_channel_members` + `chat_messages` | Messagerie temps réel · `last_read_at` pour les badges unread |
 | `notifications` | Notifications utilisateur (schéma prêt, UI à venir) |
@@ -157,7 +157,7 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 - **class_members** : lecture par soi/membres · CRUD admin
 - **libraries / library_files** : admin gère tout · class members lisent
 - **admission_requests** : insert public (formulaire) · CRUD admin
-- **live_sessions** : lecture par membres concernés (ou tous pour broadcasts) · prof crée pour ses classes · admin tout
+- **live_sessions** : lecture par membres concernés (ou tous pour broadcasts) · prof crée pour ses classes · admin tout · hôte peut UPDATE son propre live (pour attacher un enregistrement) · étudiants lisent les lives terminés de leurs classes uniquement s'ils ont un `recording_file_id`
 - **exercises** : lecture par membres de classe · CRUD par prof de la classe
 - **exercise_submissions** : student crée la sienne · prof voit/note celles de ses classes
 - **chat_channels / messages / members** : lecture/écriture par membres · UPDATE de `last_read_at` autorisée sur sa propre ligne
@@ -226,13 +226,18 @@ cita_school/
 │   ├── admission-form.tsx
 │   ├── profile-page.tsx                      # Partagée admin/prof/étudiant + classes
 │   ├── calendar/                             # Vue mensuelle + modal events
-│   ├── live/                                 # LiveRoom Jitsi (vidéo)
+│   ├── live/
+│   │   ├── live-room.tsx                     # LiveRoom Jitsi (vidéo)
+│   │   └── attach-recording-modal.tsx        # Attacher un enregistrement à un live terminé
 │   ├── chat/                                 # ChatPage + ConvList + NewDirectModal
 │   ├── blog/                                 # PostComposer + PostCard + Comments
 │   ├── library/
 │   │   ├── reader-modal.tsx                  # Lecteur unifié (PDF/audio/vidéo/PPTX)
-│   │   ├── pdf-reader.tsx                    # Lecteur PDF custom (react-pdf)
-│   │   └── upload-modal.tsx                  # Upload direct vers Supabase + multi-classes
+│   │   ├── pdf-reader.tsx                    # Lecteur PDF custom — scroll continu (react-pdf)
+│   │   ├── file-thumbnail.tsx                # Miniatures lazy (1ère page PDF, 1ère frame vidéo)
+│   │   ├── pdf-thumbnail-inner.tsx           # Inner react-pdf isolé (dynamic ssr:false)
+│   │   ├── upload-modal.tsx                  # Upload direct vers Supabase + classes optionnelles
+│   │   └── class-assignment-modal.tsx        # Gérer les classes d'un fichier après upload
 │   ├── layout/
 │   │   ├── dashboard-layout.tsx              # Charge profil + badges dynamiques
 │   │   ├── sidebar.tsx
@@ -261,6 +266,9 @@ cita_school/
 │   ├── image-maitre.png                      # Image fond Hero
 │   └── pdf.worker.min.mjs                    # Worker PDF.js (copié au postinstall)
 │
+├── supabase/
+│   └── migration_live_recordings.sql         # Migration recording_file_id + RLS replays
+│
 ├── middleware.ts                             # Protection par rôle
 ├── next.config.ts                            # Headers Permissions-Policy pour Jitsi
 ├── tailwind.config.ts
@@ -281,7 +289,7 @@ cita_school/
 | Étudiants | ✅ Supabase | CRUD complet · Modal création (credentials via API) · Toggle actif |
 | Professeurs | ✅ Supabase | Idem étudiants |
 | Classes | ✅ Supabase | CRUD + sélection profs |
-| Bibliothèques | ✅ **Full** | Upload direct Supabase (multi-classes) + lecteurs intégrés + suppression |
+| Bibliothèques | ✅ **Full** | Upload direct Supabase (classes optionnelles à l'upload) · miniatures (PDF 1ère page, vidéo 1ère frame) · gestion des classes après coup via modal · suppression |
 | Admissions | ✅ Supabase | Liste + détails + approuver = crée compte étudiant auto |
 | Calendrier | ✅ Supabase | Création événements (global ou par classe) |
 | Profil | ✅ Supabase | Upload avatar + édition nom |
@@ -292,9 +300,9 @@ cita_school/
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
 | Mes Classes | ✅ Supabase | Classes assignées + compteur étudiants |
-| Cours Live | ✅ Jitsi | Lancer un live pour sa classe + voir les broadcasts admin |
+| Cours Live | ✅ Jitsi | Lancer un live · voir broadcasts admin · **joindre un enregistrement** à ses cours terminés (pick library ou upload) + replay |
 | Exercices | ⏳ État vide | À implémenter |
-| Bibliothèques | ✅ Supabase | Lecteurs intégrés (vidéo avec contrôle vitesse, PDF custom complet, audio, PPTX) |
+| Bibliothèques | ✅ Supabase | Lecteurs intégrés avec miniatures (vidéo + vitesse, PDF scroll continu, audio + volume, PPTX) |
 | Messagerie | ✅ Realtime | Chat de classe + DMs avec membres des classes (badges unread) |
 | Calendrier | ✅ Supabase | Création limitée à ses classes |
 | Profil | ✅ Supabase | + section "Classes enseignées" |
@@ -304,9 +312,9 @@ cita_school/
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
 | Tableau de bord | ✅ Supabase | Vraies classes + état vide notifications |
-| Cours Live | ✅ Jitsi | Lives de ses classes + broadcasts (auto-refresh 20s) |
+| Cours Live | ✅ Jitsi | Lives de ses classes + broadcasts (auto-refresh 20s) · section **Cours enregistrés** (replays) |
 | Exercices | ⏳ État vide | À implémenter |
-| Bibliothèques | ✅ Supabase | Lecteurs intégrés non téléchargeables |
+| Bibliothèques | ✅ Supabase | Lecteurs intégrés non téléchargeables avec miniatures |
 | Messagerie | ✅ Realtime | Chat de classe + DMs avec membres |
 | Calendrier | ✅ Supabase | Lecture seule |
 | Profil | ✅ Supabase | + section "Mes classes" |
@@ -358,6 +366,17 @@ cita_school/
 
 ### Badge dynamique "Cours Live"
 Le menu **"Cours Live"** affiche un badge avec le nombre de lives actifs visibles (broadcasts + lives de ses classes). Polling 30s + event `lives-changed`.
+
+### Enregistrement des lives (Option A — manuelle)
+- Jitsi `meet.jit.si` ne fournit pas d'enregistrement cloud — on suit donc un flow manuel
+- Le prof enregistre son cours pendant le live (bouton "Enregistrer" Jitsi → local, OBS, QuickTime, etc.)
+- Après le live, sa page `/professeur/live` affiche une section **"Mes cours terminés"** avec badge "À enregistrer" (orange) ou "Enregistré" (vert)
+- Bouton **"Joindre un enregistrement"** → modal `AttachRecordingModal` à 2 onglets :
+  - **Bibliothèque** : choisir une vidéo déjà uploadée
+  - **Uploader une vidéo** : drop direct (1 GB max, MP4/MOV/WebM) — crée `libraries` + `library_files` + lie automatiquement aux classes du cours, puis attache via `recording_file_id`
+- Côté étudiant : section **"Cours enregistrés"** sur `/etudiant/live` listant les replays accessibles via RLS (`status='ended'` + `recording_file_id IS NOT NULL` + membre d'une classe liée)
+- Click sur un replay → `ReaderModal` en mode vidéo (téléchargement bloqué, signed URL 1h)
+- Schéma : voir `supabase/migration_live_recordings.sql`
 
 ---
 
@@ -411,10 +430,22 @@ Pour les étudiants/profs : nombre d'événements à venir (`start_at >= now`).
 ### Upload (admin uniquement)
 - **Upload direct** Browser → Supabase Storage (bypass Vercel 4.5 MB limit)
 - Utilise `createSignedUploadUrl` + `XMLHttpRequest` avec **barre de progression**
-- Multi-classes : checkboxes avec "Tout sélectionner"
-- Crée une **bibliothèque par fichier** liée à toutes les classes sélectionnées
+- Multi-classes : checkboxes avec "Tout sélectionner" — **classes optionnelles** (peut être assignées plus tard)
+- Crée une **bibliothèque par fichier** liée à toutes les classes sélectionnées (ou aucune)
 - **Rollback automatique** si une étape échoue
 - 500 MB max, formats : PDF, MP4/MOV/WEBM, MP3/WAV/OGG, PPTX/PPT
+
+### Assignation des classes après upload
+- Bouton "Gérer les classes" (icône 👥) sur chaque carte admin
+- Modal `ClassAssignmentModal` : checkboxes + diff add/remove en une transaction
+- Badge orange "Aucune classe" sur les fichiers sans assignation
+
+### Miniatures (`file-thumbnail.tsx`)
+- **Lazy load** via `IntersectionObserver` — l'URL signée n'est fetchée que quand la carte entre dans le viewport
+- **PDF** : 1ère page rendue via react-pdf (composant `PdfThumbnailInner` chargé en `dynamic(ssr:false)`)
+- **Vidéo** : 1ère frame native via `<video preload="metadata">` + overlay ▶
+- **Audio / PPTX / Other** : icône stylisée colorée avec nom du fichier en bas
+- Badge type (PDF/Vidéo/Audio…) en overlay haut-droit, ratio `aspect-video`
 
 ### Lecteurs intégrés (`components/library/reader-modal.tsx`)
 Tailles adaptatives :
@@ -426,10 +457,11 @@ Tailles adaptatives :
 | PPTX | quasi plein écran |
 
 ### PDF Reader custom (`pdf-reader.tsx` via react-pdf)
-- **Navigation par page** : prev/next + input direct
-- **Zoom** : -/+ (0.5x à 3x par pas de 0.25)
-- **Auto-largeur** + reset 100%
-- **Clavier** : ←/→ pour pages, +/- pour zoom
+- **Scroll continu** — toutes les pages rendues en colonne verticale
+- **Indicateur de page courante** mis à jour par `IntersectionObserver`
+- **Input numérique** pour sauter à une page précise (scrollIntoView)
+- **Zoom** : -/+ (0.5x à 3x par pas de 0.25) · fit-width auto · reset 100%
+- **Clavier** : +/- pour zoom (la navigation par flèche n'est plus nécessaire)
 - **PDF.js worker** servi depuis `/public/pdf.worker.min.mjs` (copié au `postinstall`)
 - Chargé dynamiquement (`ssr: false`) pour éviter erreurs SSR
 
@@ -437,6 +469,10 @@ Tailles adaptatives :
 - Overlay en haut à droite (toujours visible)
 - Boutons rapides **1x · 1.5x · 2x**
 - Menu **"⋯"** : 0.5x · 0.75x · 1x · 1.25x · 1.5x · 1.75x · 2x
+
+### Audio — Vitesse + volume
+- Pill compact sous les contrôles principaux : 0.5x → 2x
+- Contrôle de **volume** avec slider + bouton mute toggle
 
 ### Protection anti-download
 - Bucket **privé** `library-files`
@@ -505,8 +541,7 @@ Tailles adaptatives :
 - [ ] **Bouton "Réinitialiser mot de passe"** dans le modal admin étudiant/prof (route API existe)
 - [ ] **Bouton "Supprimer compte"** dans le modal admin (route API existe)
 - [ ] **Email transactionnel** quand l'admin approuve une admission
-- [ ] **Édition des classes assignées** sur un fichier de bibliothèque existant
-- [ ] **Recording natif** des lives Jitsi (nécessite self-host Jitsi + Jibri)
+- [ ] **Recording natif cloud** des lives Jitsi (passer à Daily/LiveKit ou self-host Jibri) — actuellement flow manuel par le prof
 
 ### Priorité basse / améliorations
 - [ ] Notifications push browser
@@ -571,7 +606,27 @@ claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp
 
 ## 20. Historique des versions
 
-### v0.7.1 — Direct upload + video playback speeds *(actuelle)*
+### v0.8.0 — Live recordings + library thumbnails *(actuelle)*
+- **Enregistrement des lives** (flow manuel Option A) :
+  - Colonne `recording_file_id` sur `live_sessions` → FK vers `library_files`
+  - RLS : prof UPDATE son live · étudiants SELECT les ended-lives de leurs classes avec recording
+  - `AttachRecordingModal` : pick d'une vidéo existante OU upload direct (1 GB max, auto-lié aux classes)
+  - Prof : section "Mes cours terminés" avec badges À enregistrer / Enregistré + bouton Voir/Remplacer
+  - Étudiant : section "Cours enregistrés" → `ReaderModal` vidéo (non-téléchargeable)
+- **Miniatures bibliothèque** : 1ère page PDF (react-pdf), 1ère frame vidéo, icônes pour audio/PPTX — lazy via IntersectionObserver
+- **Classes optionnelles à l'upload** + modal "Gérer les classes" (`ClassAssignmentModal`) pour assigner après coup
+- Badge orange "Aucune classe" sur les fichiers sans assignation
+
+### v0.7.3 — Audio volume + UX polish
+- Contrôle de volume + mute toggle pour le lecteur audio
+
+### v0.7.2 — Audio speeds + continuous PDF scrolling
+- Contrôles de vitesse pour l'audio (0.5x → 2x)
+- PDF reader refondu : scroll continu de toutes les pages au lieu de navigation par flèches
+- IntersectionObserver pour suivre la page courante
+- Input numérique pour saut direct (scrollIntoView smooth)
+
+### v0.7.1 — Direct upload + video playback speeds *(remplacée par v0.7.2+)*
 - Fix erreur 413 : upload direct Supabase Storage via `createSignedUploadUrl` (bypass Vercel)
 - Contrôles de vitesse vidéo (1x, 1.5x, 2x + menu 0.5x→2x) en overlay
 - PDF.js worker servi en local depuis `/public` (CDN cdnjs n'avait pas la version)
