@@ -234,6 +234,22 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
   const [current,        setCurrent]        = useState(0);
   const [speed,          setSpeed]          = useState(1);
   const [showSpeedMenu,  setShowSpeedMenu]  = useState(false);
+  const [volume,         setVolume]         = useState(1);
+  const [muted,          setMuted]          = useState(false);
+
+  function changeVolume(v: number) {
+    setVolume(v);
+    setMuted(v === 0);
+    if (audioRef.current) {
+      audioRef.current.volume = v;
+      audioRef.current.muted  = v === 0;
+    }
+  }
+  function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    if (audioRef.current) audioRef.current.muted = next;
+  }
 
   function togglePlay() {
     if (!audioRef.current) return;
@@ -317,6 +333,46 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
         </button>
       </div>
 
+      {/* Volume */}
+      <div className="flex items-center gap-3 w-full max-w-[240px]">
+        <button
+          onClick={toggleMute}
+          className="text-white/60 hover:text-white transition-colors flex-shrink-0"
+          aria-label={muted ? "Réactiver le son" : "Couper le son"}
+        >
+          {muted || volume === 0 ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+              <line x1={23} y1={9} x2={17} y2={15}/>
+              <line x1={17} y1={9} x2={23} y2={15}/>
+            </svg>
+          ) : volume < 0.5 ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+          )}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={muted ? 0 : Math.round(volume * 100)}
+          onChange={(e) => changeVolume(parseFloat(e.target.value) / 100)}
+          className="flex-1 h-1 accent-[hsl(200,70%,55%)] cursor-pointer"
+          aria-label="Volume"
+        />
+        <span className="text-white/40 text-[0.65rem] tabular-nums min-w-[1.6rem] text-right">
+          {muted ? 0 : Math.round(volume * 100)}
+        </span>
+      </div>
+
       {/* Contrôles de vitesse — barre compacte */}
       <div className="flex items-center gap-1 bg-white/5 backdrop-blur rounded-full px-2 py-1 border border-white/10">
         <span className="text-white/50 text-[0.62rem] font-medium px-1.5 uppercase tracking-wider">Vitesse</span>
@@ -366,8 +422,11 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
         onContextMenu={(e) => e.preventDefault()}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={() => {
-          setDuration(audioRef.current?.duration ?? 0);
-          if (audioRef.current) audioRef.current.playbackRate = speed;
+          if (!audioRef.current) return;
+          setDuration(audioRef.current.duration ?? 0);
+          audioRef.current.playbackRate = speed;
+          audioRef.current.volume       = volume;
+          audioRef.current.muted        = muted;
         }}
         onEnded={() => setPlaying(false)}
         className="hidden"
