@@ -43,13 +43,19 @@ export default function ProfesseurBibliothequesPage() {
       setLoading(true);
       setError(null);
       try {
-        const [filesRes, linksRes, classesRes] = await Promise.all([
+        const [filesRes, linksRes, classesRes, recRes] = await Promise.all([
           supabase
             .from("library_files")
             .select("id, library_id, file_name, file_type, file_size, created_at")
             .order("created_at", { ascending: false }),
           supabase.from("library_classes").select("library_id, class_id"),
           supabase.from("classes").select("id, name"),
+          // IDs des fichiers utilisés comme enregistrement de live — à exclure
+          // (ils apparaissent déjà dans la section « Mes cours terminés » / « Cours enregistrés »)
+          supabase
+            .from("live_sessions")
+            .select("recording_file_id")
+            .not("recording_file_id", "is", null),
         ]);
 
         if (filesRes.error)   throw filesRes.error;
@@ -58,19 +64,24 @@ export default function ProfesseurBibliothequesPage() {
 
         const links   = linksRes.data ?? [];
         const classes = classesRes.data ?? [];
+        const recordingIds = new Set(
+          (recRes.data ?? []).map((r) => r.recording_file_id).filter((x): x is string => !!x)
+        );
 
-        const enriched: LibFile[] = (filesRes.data ?? []).map((f) => {
-          const link = links.find((l) => l.library_id === f.library_id);
-          const cls  = link ? classes.find((c) => c.id === link.class_id) : null;
-          return {
-            id:        f.id,
-            name:      f.file_name,
-            type:      (f.file_type as FileType) ?? "pdf",
-            sizeBytes: f.file_size ?? 0,
-            addedAt:   f.created_at,
-            classe:    cls?.name ?? "Sans classe",
-          };
-        });
+        const enriched: LibFile[] = (filesRes.data ?? [])
+          .filter((f) => !recordingIds.has(f.id))
+          .map((f) => {
+            const link = links.find((l) => l.library_id === f.library_id);
+            const cls  = link ? classes.find((c) => c.id === link.class_id) : null;
+            return {
+              id:        f.id,
+              name:      f.file_name,
+              type:      (f.file_type as FileType) ?? "pdf",
+              sizeBytes: f.file_size ?? 0,
+              addedAt:   f.created_at,
+              classe:    cls?.name ?? "Sans classe",
+            };
+          });
 
         setFiles(enriched);
       } catch (e) {
