@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
 import { LiveRoom } from "@/components/live/live-room";
+import { AttachRecordingModal } from "@/components/live/attach-recording-modal";
+import { ReaderModal } from "@/components/library/reader-modal";
 
 interface ActiveBroadcast {
   id:         string;
@@ -13,32 +15,94 @@ interface ActiveBroadcast {
   host_id:    string;
 }
 
+interface EndedBroadcast {
+  id:                string;
+  title:             string;
+  ended_at:          string | null;
+  recording_file_id: string | null;
+  recording?:        { id: string; name: string; size: number } | null;
+}
+
 export default function AdminBroadcastPage() {
   const supabase = createClient();
-  const [active,    setActive]    = useState<ActiveBroadcast | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [error,     setError]     = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [inRoom,    setInRoom]    = useState<string | null>(null);
+  const [active,     setActive]     = useState<ActiveBroadcast | null>(null);
+  const [ended,      setEnded]      = useState<EndedBroadcast[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState<string | null>(null);
+  const [showModal,  setShowModal]  = useState(false);
+  const [inRoom,     setInRoom]     = useState<string | null>(null);
+  const [pendingRec, setPendingRec] = useState<{ file: File; sessionId: string; title: string } | null>(null);
+  const [replay,     setReplay]     = useState<EndedBroadcast | null>(null);
 
   async function loadActive() {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await supabase
-        .from("live_sessions")
-        .select("id, title, started_at, host_id")
-        .eq("session_type", "broadcast")
-        .eq("status",       "live")
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const [activeRes, endedRes] = await Promise.all([
+        supabase
+          .from("live_sessions")
+          .select("id, title, started_at, host_id")
+          .eq("session_type", "broadcast")
+          .eq("status",       "live")
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("live_sessions")
+          .select("id, title, ended_at, recording_file_id")
+          .eq("session_type", "broadcast")
+          .eq("status",       "ended")
+          .order("ended_at", { ascending: false })
+          .limit(50),
+      ]);
 
-      setActive(data ?? null);
+      setActive(activeRes.data ?? null);
+
+      const endedList = endedRes.data ?? [];
+      const recIds    = endedList.map((e) => e.recording_file_id).filter((x): x is string => !!x);
+
+      const { data: recFiles } = recIds.length > 0
+        ? await supabase.from("library_files").select("id, file_name, file_size").in("id", recIds)
+        : { data: [] as { id: string; file_name: string; file_size: number | null }[] };
+
+      setEnded(endedList.map((e) => {
+        const rec = (recFiles ?? []).find((f) => f.id === e.recording_file_id);
+        return {
+          id:                e.id,
+          title:             e.title,
+          ended_at:          e.ended_at,
+          recording_file_id: e.recording_file_id,
+          recording: rec ? { id: rec.id, name: rec.file_name, size: rec.file_size ?? 0 } : null,
+        };
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRecordingReady(file: File) {
+    if (!inRoom) return;
+    const title = active?.id === inRoom ? active.title : "Broadcast";
+    setPendingRec({ file, sessionId: inRoom, title });
+  }
+
+  async function deleteRecording(b: EndedBroadcast) {
+    if (!b.recording) return;
+    if (!confirm(`Supprimer l'enregistrement de « ${b.title} » ? Action irréversible.`)) return;
+    setError(null);
+    try {
+      const res = await fetch("/api/professor/recording-delete", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ session_id: b.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur de suppression");
+      await loadActive();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur de suppression");
     }
   }
 
@@ -79,14 +143,27 @@ export default function AdminBroadcastPage() {
     window.dispatchEvent(new CustomEvent("lives-changed"));
   }
 
-  if (inRoom && active) {
+  if (inRoom) {
     return (
-      <LiveRoom
-        sessionId={inRoom}
-        isHost
-        onEnd={endBroadcast}
-        onLeave={() => { setInRoom(null); loadActive(); }}
-      />
+      <>
+        <LiveRoom
+          sessionId={inRoom}
+          isHost
+          onEnd={active && inRoom === active.id ? endBroadcast : undefined}
+          onLeave={() => { setInRoom(null); loadActive(); }}
+          onRecordingReady={handleRecordingReady}
+        />
+        {pendingRec && (
+          <AttachRecordingModal
+            sessionId={pendingRec.sessionId}
+            sessionTitle={pendingRec.title}
+            liveClassIds={[]}
+            initialFile={pendingRec.file}
+            onClose={() => setPendingRec(null)}
+            onAttached={() => { setPendingRec(null); loadActive(); }}
+          />
+        )}
+      </>
     );
   }
 
@@ -177,12 +254,119 @@ export default function AdminBroadcastPage() {
             </div>
           </Card>
         )}
+
+        {/* Broadcasts terminés (avec ou sans enregistrement) */}
+        {!loading && ended.length > 0 && (
+          <div className="mt-8 sm:mt-10">
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
+                Broadcasts terminés
+              </h2>
+              <span className="text-[0.7rem] text-muted-fg">
+                — {ended.length} diffusion{ended.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <p className="text-[0.78rem] text-muted-fg mb-4 max-w-[640px]">
+              Historique des broadcasts. Cliquez sur « Voir l&apos;enregistrement » pour relire ceux qui ont été enregistrés et téléversés.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+              {ended.map((b) => {
+                const hasRec = !!b.recording;
+                return (
+                  <Card key={b.id}>
+                    <div className="p-5 flex flex-col gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-fg bg-muted-bg px-2.5 py-1 rounded-full">
+                          Terminé
+                        </span>
+                        {hasRec ? (
+                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-[hsl(160,60%,32%)] bg-[hsla(160,60%,45%,0.1)] px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(160,60%,32%)]" />
+                            Enregistré
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-[hsl(35,90%,35%)] bg-[hsla(35,90%,50%,0.1)] px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(35,90%,35%)]" />
+                            Sans enregistrement
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-base font-semibold text-[#141414] mb-0.5">
+                          {b.title}
+                        </h3>
+                        {b.ended_at && (
+                          <p className="text-[0.72rem] text-muted-fg">
+                            Terminé le {new Date(b.ended_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                            {" à "}
+                            {new Date(b.ended_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                        {hasRec && b.recording && (
+                          <p className="text-[0.7rem] text-muted-fg mt-1 truncate">
+                            📹 {b.recording.name} · {(b.recording.size / (1024 * 1024)).toFixed(1)} MB
+                          </p>
+                        )}
+                      </div>
+                      {hasRec && (
+                        <div className="flex gap-2 flex-wrap">
+                          <Button variant="accent" size="sm" className="flex-1" onClick={() => setReplay(b)}>
+                            Voir l&apos;enregistrement
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteRecording(b)}
+                            title="Supprimer l'enregistrement"
+                            aria-label="Supprimer"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                              <polyline points="3 6 5 6 21 6"/>
+                              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+                              <path d="M10 11v6M14 11v6"/>
+                            </svg>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {showModal && (
         <StartBroadcastModal
           onClose={() => setShowModal(false)}
           onStart={startBroadcast}
+        />
+      )}
+
+      {replay && replay.recording && (
+        <ReaderModal
+          file={{
+            id:      replay.recording.id,
+            name:    replay.recording.name,
+            type:    "video",
+            size:    replay.recording.size,
+            addedAt: replay.ended_at ?? new Date().toISOString(),
+          }}
+          onClose={() => setReplay(null)}
+        />
+      )}
+
+      {/* Enregistrement en attente (cas où l'admin a quitté la room avec recording non téléversé) */}
+      {pendingRec && (
+        <AttachRecordingModal
+          sessionId={pendingRec.sessionId}
+          sessionTitle={pendingRec.title}
+          liveClassIds={[]}
+          initialFile={pendingRec.file}
+          onClose={() => setPendingRec(null)}
+          onAttached={() => { setPendingRec(null); loadActive(); }}
         />
       )}
     </>

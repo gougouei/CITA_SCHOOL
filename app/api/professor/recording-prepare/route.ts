@@ -50,18 +50,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Vous n'êtes pas l'hôte de ce cours" }, { status: 403 });
   }
 
-  // Récupérer les classes liées
-  const { data: links } = await supabase
-    .from("live_session_classes")
-    .select("class_id")
-    .eq("live_session_id", session_id);
-  const classIds = (links ?? []).map((l) => l.class_id);
-
   // Client admin (service_role) pour bypasser RLS
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+
+  // Récupérer les classes à lier :
+  //   - class_live  → uniquement les classes du cours
+  //   - broadcast   → toutes les classes (visible par tous, comme le live original)
+  let classIds: string[];
+  if (session.session_type === "broadcast") {
+    const { data: allClasses } = await admin.from("classes").select("id");
+    classIds = (allClasses ?? []).map((c) => c.id);
+  } else {
+    const { data: links } = await supabase
+      .from("live_session_classes")
+      .select("class_id")
+      .eq("live_session_id", session_id);
+    classIds = (links ?? []).map((l) => l.class_id);
+  }
 
   // Créer la bibliothèque
   const { data: newLib, error: libError } = await admin
