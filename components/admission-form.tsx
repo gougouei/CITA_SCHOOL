@@ -134,7 +134,10 @@ export function AdmissionForm() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur lors de la soumission");
+      if (!res.ok) {
+        const parts = [data.error, data.details, data.hint, data.code].filter(Boolean);
+        throw new Error(parts.join(" · ") || "Erreur lors de la soumission");
+      }
 
       setSubmitted(true);
       setForm(INITIAL);

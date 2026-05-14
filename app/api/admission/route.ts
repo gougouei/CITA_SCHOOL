@@ -88,8 +88,15 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
+    // Pour faciliter le diagnostic en production, on inclut le détail Supabase
+    // (la table admission_requests est insérée publiquement — aucun risque de fuite sensible)
     return NextResponse.json(
-      { error: "Erreur lors de la soumission. Veuillez réessayer." },
+      {
+        error: "Erreur lors de la soumission. Veuillez réessayer.",
+        details: error.message,
+        code: error.code ?? undefined,
+        hint: error.hint ?? undefined,
+      },
       { status: 500 }
     );
   }
