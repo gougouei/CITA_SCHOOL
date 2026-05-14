@@ -38,12 +38,12 @@ function formatSize(bytes: number) {
 
 // Tailles adaptées au type de média
 const SIZE_BY_TYPE: Record<FileType, string> = {
-  audio: "w-full max-w-md  max-h-[480px]",
-  video: "w-full max-w-3xl max-h-[80vh]",
+  audio: "w-full max-w-md max-h-[90vh] sm:max-h-[480px]",
+  video: "w-full max-w-3xl max-h-[90vh] sm:max-h-[80vh]",
   // PDF : quasi plein écran (taille initiale)
   pdf:   "w-full h-full max-w-none max-h-none",
   pptx:  "w-full h-full max-w-none max-h-none",
-  other: "w-full max-w-2xl max-h-[70vh]",
+  other: "w-full max-w-2xl max-h-[90vh] sm:max-h-[70vh]",
 };
 
 interface Props {

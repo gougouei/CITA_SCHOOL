@@ -328,49 +328,53 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
 
       <div className="fixed inset-0 bg-[#0d0d0d] z-[100] flex flex-col">
         {/* Barre du haut */}
-        <div className="px-4 sm:px-6 py-3 bg-black/60 border-b border-white/10 flex items-center justify-between gap-3 flex-shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="flex items-center gap-2 bg-[hsla(0,84%,60%,0.15)] text-[hsl(0,84%,70%)] px-3 py-1 rounded-full text-[0.65rem] font-bold uppercase tracking-wider flex-shrink-0">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-black/60 border-b border-white/10 flex items-center justify-between gap-2 sm:gap-3 flex-shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 bg-[hsla(0,84%,60%,0.15)] text-[hsl(0,84%,70%)] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[0.6rem] sm:text-[0.65rem] font-bold uppercase tracking-wider flex-shrink-0">
               <span className="w-1.5 h-1.5 bg-[hsl(0,84%,65%)] rounded-full animate-pulse" />
-              En direct
+              <span className="hidden xs:inline">En direct</span>
+              <span className="xs:hidden">Live</span>
             </div>
-            <p className="text-white text-sm font-semibold truncate">
+            <p className="text-white text-xs sm:text-sm font-semibold truncate">
               {access?.title ?? "Connexion…"}
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 flex-wrap justify-end">
             {/* Bouton enregistrement local — visible uniquement pour le prof/admin */}
             {isHost && !error && !loading && (
               isRecording ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-white text-[0.7rem] font-mono bg-black/70 px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-[hsl(0,84%,55%)]">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <span className="text-white text-[0.65rem] sm:text-[0.7rem] font-mono bg-black/70 px-2 sm:px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-[hsl(0,84%,55%)]">
                     <span className="w-1.5 h-1.5 rounded-full bg-[hsl(0,84%,65%)] animate-pulse" />
                     REC {formatElapsed(recElapsed)}
                   </span>
                   <button
                     onClick={stopRecording}
-                    className="h-9 px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all"
+                    className="h-9 px-2.5 sm:px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all"
                     title="Arrêter l'enregistrement"
+                    aria-label="Arrêter l'enregistrement"
                   >
                     <span className="w-3 h-3 bg-white rounded-[2px]" />
-                    Arrêter
+                    <span className="hidden sm:inline">Arrêter</span>
                   </button>
                 </div>
               ) : (
                 <button
                   onClick={startRecording}
-                  className="h-9 px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all hover:scale-[1.03]"
+                  className="h-9 px-2.5 sm:px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all hover:scale-[1.03]"
                   title="Démarrer l'enregistrement local"
+                  aria-label="Démarrer l'enregistrement"
                 >
                   <span className="w-3 h-3 rounded-full bg-white" />
-                  Enregistrer
+                  <span className="hidden sm:inline">Enregistrer</span>
                 </button>
               )
             )}
 
             {isHost && !error && (
               <Button variant="destructive" size="sm" onClick={handleEndLive}>
-                Terminer le live
+                <span className="hidden sm:inline">Terminer le live</span>
+                <span className="sm:hidden">Terminer</span>
               </Button>
             )}
             <Button

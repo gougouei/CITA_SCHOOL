@@ -43,12 +43,12 @@ export default function LandingPage() {
           <p className="font-serif text-[1rem] sm:text-[1.25rem] italic text-white/70 max-w-[600px] mx-auto mb-10 sm:mb-12 leading-[1.7]">
             &ldquo;Celui qui cherche la lumière dans l&apos;obscurité trouvera le chemin vers la connaissance éternelle. La sagesse des ancêtres est un héritage qui transcende le temps.&rdquo;
           </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <a href="#admission">
-              <Button variant="accent" size="lg">Demander une admission</Button>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center sm:flex-wrap max-w-xs sm:max-w-none mx-auto">
+            <a href="#admission" className="w-full sm:w-auto">
+              <Button variant="accent" size="lg" className="w-full sm:w-auto">Demander une admission</Button>
             </a>
-            <Link href="/connexion">
-              <Button variant="ghost" size="lg">Espace membre</Button>
+            <Link href="/connexion" className="w-full sm:w-auto">
+              <Button variant="ghost" size="lg" className="w-full sm:w-auto">Espace membre</Button>
             </Link>
           </div>
         </div>

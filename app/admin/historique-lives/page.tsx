@@ -263,63 +263,124 @@ export default function AdminHistoriqueLivesPage() {
             Aucun cours ne correspond aux filtres sélectionnés.
           </div>
         ) : (
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b border-border">
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Titre</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Professeur</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Classe(s)</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Statut</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Démarré</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Durée</th>
-                    <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Enregistrement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted-bg/30">
-                      <td className="px-4 py-3 font-medium text-[#141414] max-w-[260px]">
-                        <div className="truncate">{r.title}</div>
-                      </td>
-                      <td className="px-4 py-3 text-muted-fg">{r.host_name}</td>
-                      <td className="px-4 py-3 text-muted-fg">
-                        {r.classes.length === 0 ? "—" : r.classes.join(", ")}
-                      </td>
-                      <td className="px-4 py-3">
-                        {r.status === "live" ? (
-                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-destructive bg-[hsla(0,84%,60%,0.12)] px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
-                            En cours
-                          </span>
-                        ) : (
-                          <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-fg bg-muted-bg px-2 py-0.5 rounded-full">
-                            Terminé
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-muted-fg text-[0.78rem] whitespace-nowrap">{formatDate(r.started_at)}</td>
-                      <td className="px-4 py-3 text-muted-fg text-[0.78rem]">{durationMinutes(r.started_at, r.ended_at)}</td>
-                      <td className="px-4 py-3">
-                        {r.recording ? (
-                          <Button variant="outline" size="sm" onClick={() => setReplay(r)}>
-                            <span className="text-[hsl(160,60%,32%)] mr-1">📹</span> Voir
-                          </Button>
-                        ) : r.status === "ended" ? (
-                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-medium text-[hsl(35,90%,35%)] bg-[hsla(35,90%,50%,0.1)] px-2 py-0.5 rounded-full">
-                            À uploader
-                          </span>
-                        ) : (
-                          <span className="text-[0.7rem] text-muted-fg">—</span>
-                        )}
-                      </td>
+          <>
+            {/* Vue tableau — desktop / tablette large */}
+            <Card className="hidden lg:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left border-b border-border">
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Titre</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Professeur</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Classe(s)</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Statut</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Démarré</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Durée</th>
+                      <th className="px-4 py-3 font-semibold text-[0.72rem] uppercase tracking-wider text-muted-fg">Enregistrement</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => (
+                      <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted-bg/30">
+                        <td className="px-4 py-3 font-medium text-[#141414] max-w-[260px]">
+                          <div className="truncate">{r.title}</div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-fg">{r.host_name}</td>
+                        <td className="px-4 py-3 text-muted-fg">
+                          {r.classes.length === 0 ? "—" : r.classes.join(", ")}
+                        </td>
+                        <td className="px-4 py-3">
+                          {r.status === "live" ? (
+                            <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-destructive bg-[hsla(0,84%,60%,0.12)] px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
+                              En cours
+                            </span>
+                          ) : (
+                            <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-fg bg-muted-bg px-2 py-0.5 rounded-full">
+                              Terminé
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-fg text-[0.78rem] whitespace-nowrap">{formatDate(r.started_at)}</td>
+                        <td className="px-4 py-3 text-muted-fg text-[0.78rem]">{durationMinutes(r.started_at, r.ended_at)}</td>
+                        <td className="px-4 py-3">
+                          {r.recording ? (
+                            <Button variant="outline" size="sm" onClick={() => setReplay(r)}>
+                              <span className="text-[hsl(160,60%,32%)] mr-1">📹</span> Voir
+                            </Button>
+                          ) : r.status === "ended" ? (
+                            <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-medium text-[hsl(35,90%,35%)] bg-[hsla(35,90%,50%,0.1)] px-2 py-0.5 rounded-full">
+                              À uploader
+                            </span>
+                          ) : (
+                            <span className="text-[0.7rem] text-muted-fg">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* Vue cartes — mobile / tablette */}
+            <div className="lg:hidden flex flex-col gap-3">
+              {filtered.map((r) => (
+                <Card key={r.id}>
+                  <div className="p-4 flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-semibold text-[#141414] text-sm leading-snug line-clamp-2 flex-1 min-w-0">
+                        {r.title}
+                      </h3>
+                      {r.status === "live" ? (
+                        <span className="inline-flex items-center gap-1.5 text-[0.65rem] font-bold uppercase tracking-wider text-destructive bg-[hsla(0,84%,60%,0.12)] px-2 py-0.5 rounded-full flex-shrink-0">
+                          <span className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse" />
+                          En cours
+                        </span>
+                      ) : (
+                        <span className="text-[0.65rem] font-bold uppercase tracking-wider text-muted-fg bg-muted-bg px-2 py-0.5 rounded-full flex-shrink-0">
+                          Terminé
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1 text-[0.78rem]">
+                      <div className="flex justify-between gap-3">
+                        <span className="text-muted-fg">Prof</span>
+                        <span className="text-[#141414] font-medium text-right truncate">{r.host_name}</span>
+                      </div>
+                      {r.classes.length > 0 && (
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-fg">Classes</span>
+                          <span className="text-[#141414] text-right truncate">{r.classes.join(", ")}</span>
+                        </div>
+                      )}
+                      {r.started_at && (
+                        <div className="flex justify-between gap-3">
+                          <span className="text-muted-fg">Démarré</span>
+                          <span className="text-[#141414] text-right">{formatDate(r.started_at)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-3">
+                        <span className="text-muted-fg">Durée</span>
+                        <span className="text-[#141414]">{durationMinutes(r.started_at, r.ended_at)}</span>
+                      </div>
+                    </div>
+
+                    {r.recording ? (
+                      <Button variant="outline" size="sm" onClick={() => setReplay(r)} className="w-full">
+                        <span className="text-[hsl(160,60%,32%)] mr-1.5">📹</span> Voir l&apos;enregistrement
+                      </Button>
+                    ) : r.status === "ended" ? (
+                      <div className="text-center py-1.5 text-[0.7rem] font-medium text-[hsl(35,90%,35%)] bg-[hsla(35,90%,50%,0.1)] rounded-md">
+                        À uploader
+                      </div>
+                    ) : null}
+                  </div>
+                </Card>
+              ))}
             </div>
-          </Card>
+          </>
         )}
       </div>
 

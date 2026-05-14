@@ -633,9 +633,9 @@ function EditProfessorModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
-          <Button variant="outline" onClick={onClose}>Annuler</Button>
-          <Button variant="accent" onClick={handleSave}>Enregistrer les modifications</Button>
+        <div className="px-4 sm:px-6 py-4 border-t border-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 sm:gap-3">
+          <Button variant="outline" onClick={onClose} className="sm:w-auto">Annuler</Button>
+          <Button variant="accent" onClick={handleSave} className="sm:w-auto">Enregistrer</Button>
         </div>
       </div>
     </>
@@ -846,8 +846,8 @@ function CreateProfessorModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-border bg-secondary flex items-center justify-between gap-3">
-          <Button variant="outline" onClick={onClose} disabled={submitting}>
+        <div className="px-4 sm:px-6 py-4 border-t border-border bg-secondary flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-between gap-2 sm:gap-3">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="sm:w-auto">
             {step === "done" ? "Fermer" : "Annuler"}
           </Button>
           {step === "form" ? (
