@@ -301,19 +301,31 @@ function EditProfessorModal({
   const [classes, setClasses] = useState<string[]>(professor.classes);
   const [newPassword, setNewPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   function toggleClass(c: string) {
     setClasses((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
   }
 
-  function handleGeneratePassword() {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%";
-    let pwd = "";
-    const required = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghjkmnpqrstuvwxyz", "23456789", "!@#$%"];
-    required.forEach((set) => { pwd += set[Math.floor(Math.random() * set.length)]; });
-    for (let i = pwd.length; i < 14; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
-    setNewPassword(pwd.split("").sort(() => Math.random() - 0.5).join(""));
+  async function handleGeneratePassword() {
+    setResetError(null);
+    setResetLoading(true);
     setCopied(false);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ user_id: professor.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur de réinitialisation");
+      setNewPassword(body.new_password);
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : "Erreur de réinitialisation");
+    } finally {
+      setResetLoading(false);
+    }
   }
 
   function handleCopy() {
@@ -538,6 +550,12 @@ function EditProfessorModal({
                   Un nouveau mot de passe sécurisé sera généré. Communiquez-le au professeur.
                 </p>
 
+                {resetError && (
+                  <div className="mb-3 px-3 py-2 rounded-md bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-[0.78rem]">
+                    {resetError}
+                  </div>
+                )}
+
                 {newPassword ? (
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2 bg-muted-bg border border-border rounded-lg px-3 h-10">
@@ -562,8 +580,8 @@ function EditProfessorModal({
                     </div>
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={handleGeneratePassword}>
-                    Générer un nouveau mot de passe
+                  <Button variant="outline" size="sm" onClick={handleGeneratePassword} disabled={resetLoading}>
+                    {resetLoading ? "Génération…" : "Générer un nouveau mot de passe"}
                   </Button>
                 )}
               </div>

@@ -565,6 +565,8 @@ function EditStudentModal({
   const [form, setForm] = useState<Student>({ ...student, classes: [...student.classes] });
   const [resetDone, setResetDone] = useState(false);
   const [newPassword, setNewPassword] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "classes" | "securite">("info");
 
   function toggleClass(classId: string) {
@@ -576,11 +578,24 @@ function EditStudentModal({
     }));
   }
 
-  function handleResetPassword() {
-    // Simulation — remplacer par AdminService.resetUserPassword(form.id)
-    const fake = "Xt7#mP2kLq9!";
-    setNewPassword(fake);
-    setResetDone(true);
+  async function handleResetPassword() {
+    setResetError(null);
+    setResetLoading(true);
+    try {
+      const res = await fetch("/api/admin/reset-password", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ user_id: form.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur de réinitialisation");
+      setNewPassword(body.new_password);
+      setResetDone(true);
+    } catch (e) {
+      setResetError(e instanceof Error ? e.message : "Erreur de réinitialisation");
+    } finally {
+      setResetLoading(false);
+    }
   }
 
   function handleSave() {
@@ -791,9 +806,21 @@ function EditStudentModal({
                   </div>
                 </div>
 
+                {resetError && (
+                  <div className="mb-3 px-3 py-2 rounded-md bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-[0.78rem]">
+                    {resetError}
+                  </div>
+                )}
+
                 {!resetDone ? (
-                  <Button variant="secondary" size="sm" onClick={handleResetPassword} className="w-full">
-                    Générer un nouveau mot de passe
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleResetPassword}
+                    disabled={resetLoading}
+                    className="w-full"
+                  >
+                    {resetLoading ? "Génération…" : "Générer un nouveau mot de passe"}
                   </Button>
                 ) : (
                   <div className="flex flex-col gap-2">
