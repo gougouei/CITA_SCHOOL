@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase";
 import { ReaderModal, type FileType } from "@/components/library/reader-modal";
+import { FileThumbnail } from "@/components/library/file-thumbnail";
 
 interface LibFile {
   id:        string;
@@ -194,25 +194,36 @@ function FileCard({ file, onRead }: { file: LibFile; onRead: () => void }) {
   const readLabel: Record<Exclude<FileType, "other">, string> = {
     pdf: "Lire le document", video: "Regarder", audio: "Écouter", pptx: "Consulter",
   };
+  const thumbType: "pdf" | "video" | "audio" | "pptx" | "other" = file.type;
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 flex flex-col gap-4 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150">
-      <div className="flex items-start justify-between">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 ${cfg.bg}`}>
-          {cfg.icon}
-        </div>
-        <Badge className={`text-[0.65rem] uppercase ${cfg.bg} ${cfg.color} border-0`}>{cfg.label}</Badge>
-      </div>
-      <div>
+    <div className="bg-white border border-border rounded-xl flex flex-col gap-3 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150 overflow-hidden">
+      <button
+        type="button"
+        onClick={onRead}
+        className="block w-full text-left cursor-pointer"
+        aria-label={`Ouvrir ${file.name}`}
+      >
+        <FileThumbnail fileId={file.id} type={thumbType} name={file.name} />
+      </button>
+
+      <div className="px-4 pt-1">
         <p className="text-sm font-semibold leading-snug line-clamp-2 text-[#141414]">{file.name}</p>
       </div>
-      <div className="flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-3 mt-auto">
-        <span>{formatSize(file.sizeBytes)}</span>
+
+      <div className="px-4 flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-2.5">
+        <span className={`inline-flex items-center gap-1 ${cfg.color}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${cfg.color.replace("text-", "bg-")}`} />
+          {formatSize(file.sizeBytes)}
+        </span>
         <span>{formatDate(file.addedAt)}</span>
       </div>
-      <Button variant="accent" size="sm" className="w-full" onClick={onRead}>
-        {readLabel[file.type === "other" ? "pdf" : file.type]}
-      </Button>
+
+      <div className="px-4 pb-4">
+        <Button variant="accent" size="sm" className="w-full" onClick={onRead}>
+          {readLabel[file.type === "other" ? "pdf" : file.type]}
+        </Button>
+      </div>
     </div>
   );
 }

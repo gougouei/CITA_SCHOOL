@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase";
 import { UploadModal } from "@/components/library/upload-modal";
 import { ReaderModal } from "@/components/library/reader-modal";
+import { FileThumbnail } from "@/components/library/file-thumbnail";
+import { ClassAssignmentModal } from "@/components/library/class-assignment-modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = "pdf" | "video" | "audio" | "pptx" | "other";
@@ -17,6 +18,7 @@ interface ClassOption {
 
 interface FileItem {
   id:        string;
+  libraryId: string;
   name:      string;
   type:      FileType;
   size:      number; // MB
@@ -71,6 +73,7 @@ export default function AdminBibliothequesPage() {
   const [sortKey,      setSortKey]      = useState<SortKey>("date_desc");
   const [showUpload,   setShowUpload]   = useState(false);
   const [readerFile,   setReaderFile]   = useState<FileItem | null>(null);
+  const [classFile,    setClassFile]    = useState<FileItem | null>(null);
 
   async function handleDelete(fileId: string) {
     if (!confirm("Supprimer ce fichier ? Action irréversible.")) return;
@@ -100,6 +103,7 @@ export default function AdminBibliothequesPage() {
       const links = linkRes.data ?? [];
       const enriched: FileItem[] = (filesRes.data ?? []).map((f) => ({
         id:        f.id,
+        libraryId: f.library_id,
         name:      f.file_name,
         type:      (f.file_type as FileType) ?? "other",
         size:      (f.file_size ?? 0) / (1024 * 1024), // bytes → MB
@@ -160,8 +164,6 @@ export default function AdminBibliothequesPage() {
           variant="accent"
           size="sm"
           onClick={() => setShowUpload(true)}
-          disabled={classes.length === 0}
-          title={classes.length === 0 ? "Créez au moins une classe d'abord" : undefined}
         >
           + Ajouter un fichier
         </Button>
@@ -176,14 +178,6 @@ export default function AdminBibliothequesPage() {
 
         {loading ? (
           <div className="text-center py-20 text-muted-fg text-sm">Chargement…</div>
-        ) : classes.length === 0 ? (
-          <div className="text-center py-20 text-muted-fg text-sm">
-            Aucune classe créée.{" "}
-            <a href="/admin/classes" className="text-citsa-red-hex underline">
-              Créez une classe d&apos;abord
-            </a>{" "}
-            pour pouvoir y ajouter des fichiers.
-          </div>
         ) : (
           <>
             {/* Filtre par classe */}
@@ -330,12 +324,12 @@ export default function AdminBibliothequesPage() {
                           — {group.length} fichier{group.length > 1 ? "s" : ""}
                         </span>
                       </div>
-                      <FileGrid files={group} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} />
+                      <FileGrid files={group} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} onManageClasses={setClassFile} />
                     </section>
                   ))}
               </div>
             ) : (
-              <FileGrid files={filtered} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} />
+              <FileGrid files={filtered} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} onManageClasses={setClassFile} />
             )}
           </>
         )}
@@ -361,20 +355,32 @@ export default function AdminBibliothequesPage() {
           onClose={() => setReaderFile(null)}
         />
       )}
+
+      {classFile && (
+        <ClassAssignmentModal
+          libraryId={classFile.libraryId}
+          fileName={classFile.name}
+          classes={classes}
+          initialClassIds={classFile.classeIds}
+          onClose={() => setClassFile(null)}
+          onSaved={() => loadData()}
+        />
+      )}
     </>
   );
 }
 
 // ─── File Grid ────────────────────────────────────────────────────────────────
 function FileGrid({
-  files, classes, classConfig, showClasse, onView, onDelete,
+  files, classes, classConfig, showClasse, onView, onDelete, onManageClasses,
 }: {
   files: FileItem[];
   classes: ClassOption[];
   classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
   showClasse: boolean;
-  onView:   (f: FileItem) => void;
-  onDelete: (id: string)  => void;
+  onView:           (f: FileItem) => void;
+  onDelete:         (id: string)  => void;
+  onManageClasses:  (f: FileItem) => void;
 }) {
   return (
     <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
@@ -387,6 +393,7 @@ function FileGrid({
           showClasse={showClasse}
           onView={onView}
           onDelete={onDelete}
+          onManageClasses={onManageClasses}
         />
       ))}
     </div>
@@ -395,56 +402,90 @@ function FileGrid({
 
 // ─── File Card ────────────────────────────────────────────────────────────────
 function FileCard({
-  file, classes, classConfig, showClasse, onView, onDelete,
+  file, classes, classConfig, showClasse, onView, onDelete, onManageClasses,
 }: {
   file: FileItem;
   classes: ClassOption[];
   classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
   showClasse: boolean;
-  onView:   (f: FileItem) => void;
-  onDelete: (id: string)  => void;
+  onView:          (f: FileItem) => void;
+  onDelete:        (id: string)  => void;
+  onManageClasses: (f: FileItem) => void;
 }) {
   const cfg = TYPE_CONFIG[file.type] ?? TYPE_CONFIG.other;
+  const thumbType: "pdf" | "video" | "audio" | "pptx" | "other" = file.type;
 
   return (
-    <div className="bg-white border border-border rounded-xl p-5 flex flex-col gap-4 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150">
-      <div className="flex items-start justify-between">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${cfg.iconBg}`}>
-          {cfg.icon}
-        </div>
-        <Badge className={`text-[0.65rem] uppercase ${cfg.iconBg} ${cfg.color} border-0`}>
-          {cfg.label}
-        </Badge>
-      </div>
+    <div className="bg-white border border-border rounded-xl flex flex-col gap-3 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150 overflow-hidden">
+      {/* Miniature cliquable */}
+      <button
+        type="button"
+        onClick={() => onView(file)}
+        className="block w-full text-left cursor-pointer"
+        aria-label={`Ouvrir ${file.name}`}
+      >
+        <FileThumbnail fileId={file.id} type={thumbType} name={file.name} />
+      </button>
 
-      <div>
+      <div className="px-4 pt-1 flex-1 flex flex-col gap-2">
         <p className="text-sm font-semibold leading-snug line-clamp-2 text-[#141414]">{file.name}</p>
-        {showClasse && file.classeIds.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {file.classeIds.map((cid) => {
-              const cls = classes.find((c) => c.id === cid);
-              const ccfg = classConfig[cid];
-              if (!cls || !ccfg) return null;
-              return (
-                <span key={cid} className={`inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full ${ccfg.bg} ${ccfg.color}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${ccfg.dot}`} />
-                  {cls.name}
-                </span>
-              );
-            })}
+
+        {showClasse && (
+          <div className="flex flex-wrap gap-1">
+            {file.classeIds.length === 0 ? (
+              <span className="inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full bg-[hsla(35,90%,50%,0.1)] text-[hsl(35,90%,35%)]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(35,90%,35%)]" />
+                Aucune classe
+              </span>
+            ) : (
+              file.classeIds.map((cid) => {
+                const cls = classes.find((c) => c.id === cid);
+                const ccfg = classConfig[cid];
+                if (!cls || !ccfg) return null;
+                return (
+                  <span key={cid} className={`inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full ${ccfg.bg} ${ccfg.color}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${ccfg.dot}`} />
+                    {cls.name}
+                  </span>
+                );
+              })
+            )}
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-3 mt-auto">
-        <span>{formatSize(file.size)}</span>
+      <div className="px-4 flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-2.5">
+        <span className={`inline-flex items-center gap-1 ${cfg.color}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+          {formatSize(file.size)}
+        </span>
         <span>{formatDate(file.addedAt)}</span>
       </div>
 
-      <div className="flex gap-2">
+      <div className="px-4 pb-4 flex gap-2">
         <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(file)}>Voir</Button>
-        <Button variant="destructive" size="sm" className="flex-1" onClick={() => onDelete(file.id)}>Supprimer</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onManageClasses(file)}
+          title="Gérer les classes ayant accès"
+          aria-label="Gérer les classes"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx={9} cy={7} r={4}/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </Button>
+        <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)} aria-label="Supprimer">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+          </svg>
+        </Button>
       </div>
     </div>
   );
 }
+

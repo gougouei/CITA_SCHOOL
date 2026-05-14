@@ -66,10 +66,6 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
       setError("Sélectionnez un fichier.");
       return;
     }
-    if (classIds.length === 0) {
-      setError("Sélectionnez au moins une classe.");
-      return;
-    }
     setError(null);
     setUploading(true);
     setProgress(0);
@@ -93,7 +89,9 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
         .from("libraries")
         .insert({
           name:        file.name,
-          description: `Accessible par : ${classNames}`,
+          description: classIds.length > 0
+            ? `Accessible par : ${classNames}`
+            : "Aucune classe assignée — à configurer après l'upload",
           created_by:  user.id,
         })
         .select("id")
@@ -101,11 +99,13 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
       if (libError || !newLib) throw new Error(libError?.message ?? "Erreur création bibliothèque");
       libraryId = newLib.id;
 
-      // ─── 2. Lier aux classes ──────────────────────────────────────────────
-      const { error: linksError } = await supabase
-        .from("library_classes")
-        .insert(classIds.map((cid) => ({ library_id: libraryId, class_id: cid })));
-      if (linksError) throw new Error(linksError.message);
+      // ─── 2. Lier aux classes (si sélectionnées) ───────────────────────────
+      if (classIds.length > 0) {
+        const { error: linksError } = await supabase
+          .from("library_classes")
+          .insert(classIds.map((cid) => ({ library_id: libraryId, class_id: cid })));
+        if (linksError) throw new Error(linksError.message);
+      }
 
       // ─── 3. Obtenir une URL signée pour l'upload direct ───────────────────
       const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
@@ -243,11 +243,11 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
             )}
           </div>
 
-          {/* Classes — multi-sélection */}
+          {/* Classes — multi-sélection (optionnel) */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-[0.78rem] font-semibold">
-                Classes autorisées <span className="text-citsa-red-hex">*</span>
+                Classes autorisées <span className="text-muted-fg font-normal">(optionnel)</span>
               </label>
               {classes.length > 0 && (
                 <button
@@ -266,7 +266,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
 
             {classes.length === 0 ? (
               <p className="text-[0.78rem] text-muted-fg italic">
-                Aucune classe disponible. Créez-en une d&apos;abord.
+                Aucune classe disponible — créez-en une plus tard puis assignez ce fichier.
               </p>
             ) : (
               <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto">
@@ -301,7 +301,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
             )}
             <p className="text-[0.72rem] text-muted-fg mt-2">
               {classIds.length === 0
-                ? "Cochez les classes qui auront accès à ce fichier."
+                ? "Vous pourrez assigner des classes après l'upload via le bouton « Gérer les classes »."
                 : `${classIds.length} classe${classIds.length > 1 ? "s" : ""} sélectionnée${classIds.length > 1 ? "s" : ""}`}
             </p>
           </div>
@@ -336,7 +336,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
 
         <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
           <Button variant="outline" onClick={onClose} disabled={uploading}>Annuler</Button>
-          <Button variant="accent" onClick={handleUpload} disabled={!file || classIds.length === 0 || uploading}>
+          <Button variant="accent" onClick={handleUpload} disabled={!file || uploading}>
             {uploading ? "Upload…" : "Téléverser"}
           </Button>
         </div>
