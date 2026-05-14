@@ -11,19 +11,26 @@ export default function LandingPage() {
 
       {/* Hero */}
       <section className="min-h-screen bg-citsa-black text-white flex items-center justify-center relative overflow-hidden px-5 sm:px-8 pt-20 sm:pt-24 pb-12 sm:pb-16">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_70%_40%,_hsla(0,75%,45%,0.15),_transparent_60%)] z-[1]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(20,20,20,0.15)] via-[rgba(20,20,20,0.3)] to-[rgba(20,20,20,0.75)] z-[1]" />
-        {/* Pattern overlay */}
+        {/* Image de fond — Maître CITSA */}
         <div
-          className="absolute inset-0 opacity-[0.03] z-[2]"
+          className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: "url('/image-maitre.png')" }}
+        />
+        {/* Overlay sombre pour la lisibilité du texte */}
+        <div className="absolute inset-0 bg-black/55 z-[1]" />
+        {/* Vignette rouge subtile + dégradé du bas */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_70%_40%,_hsla(0,75%,45%,0.18),_transparent_60%)] z-[2]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[rgba(20,20,20,0.85)] z-[2]" />
+        {/* Pattern losanges (très subtil) */}
+        <div
+          className="absolute inset-0 opacity-[0.04] z-[3]"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30Z' fill='none' stroke='white' stroke-width='1'/%3E%3C/svg%3E")`,
             backgroundSize: "60px 60px",
           }}
         />
 
-        <div className="relative z-[3] max-w-[900px] text-center">
+        <div className="relative z-[4] max-w-[900px] text-center">
           <div className="text-[0.75rem] font-semibold tracking-[0.15em] uppercase text-citsa-red-light mb-6">
             École Mystico Négro-Africaine
           </div>
