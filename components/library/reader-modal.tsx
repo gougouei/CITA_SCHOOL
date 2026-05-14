@@ -164,7 +164,7 @@ function VideoReader({ url }: { url: string }) {
   }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-2 sm:p-4 gap-2">
+    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
       <video
         ref={videoRef}
         src={url}
@@ -173,49 +173,44 @@ function VideoReader({ url }: { url: string }) {
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
         onLoadedMetadata={() => { if (videoRef.current) videoRef.current.playbackRate = speed; }}
-        className="max-w-full max-h-full rounded-lg flex-1 min-h-0"
+        className="max-w-full max-h-full rounded-lg"
       />
 
-      {/* Barre de contrôles personnalisée — vitesse */}
-      <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex-shrink-0">
-        <span className="text-white/70 text-[0.7rem] font-medium hidden sm:inline">Vitesse :</span>
+      {/* Barre de vitesse — overlay en haut à droite, toujours visible */}
+      <div className="absolute top-3 right-3 sm:top-5 sm:right-5 z-10 flex items-center gap-1 bg-black/70 backdrop-blur rounded-full px-2 py-1 shadow-lg">
+        <span className="text-white/60 text-[0.65rem] font-medium px-1 hidden sm:inline">Vitesse</span>
 
         {/* Boutons rapides 1x / 1.5x / 2x */}
-        <div className="flex items-center gap-1">
-          {[1, 1.5, 2].map((s) => (
-            <button
-              key={s}
-              onClick={() => changeSpeed(s)}
-              className={`px-2 py-0.5 rounded-full text-[0.7rem] font-semibold transition-colors ${
-                speed === s
-                  ? "bg-white text-[#141414]"
-                  : "text-white/70 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              {s}x
-            </button>
-          ))}
-        </div>
+        {[1, 1.5, 2].map((s) => (
+          <button
+            key={s}
+            onClick={() => changeSpeed(s)}
+            className={`px-2 py-0.5 rounded-full text-[0.7rem] font-semibold transition-colors ${
+              speed === s
+                ? "bg-white text-[#141414]"
+                : "text-white/70 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {s}x
+          </button>
+        ))}
 
         {/* Menu déroulant pour les autres vitesses */}
         <div className="relative">
           <button
             onClick={() => setShowSpeedMenu((v) => !v)}
-            className="px-2 py-0.5 rounded-full text-[0.7rem] font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1"
+            className="px-2 py-0.5 rounded-full text-[0.7rem] font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-0.5"
             aria-label="Plus de vitesses"
           >
-            Plus
-            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            ⋯
           </button>
           {showSpeedMenu && (
-            <div className="absolute bottom-full right-0 mb-1 bg-black/90 backdrop-blur rounded-lg border border-white/10 py-1 min-w-[80px] shadow-elevated">
+            <div className="absolute top-full right-0 mt-1 bg-black/95 backdrop-blur rounded-lg border border-white/10 py-1 min-w-[110px] shadow-elevated">
               {SPEEDS.map((s) => (
                 <button
                   key={s}
                   onClick={() => changeSpeed(s)}
-                  className={`block w-full text-left px-3 py-1 text-[0.75rem] hover:bg-white/10 transition-colors ${
+                  className={`block w-full text-left px-3 py-1.5 text-[0.75rem] hover:bg-white/10 transition-colors ${
                     speed === s ? "text-white font-bold" : "text-white/70"
                   }`}
                 >
