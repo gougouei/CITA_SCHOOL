@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase";
 
 interface ClassOption { id: string; name: string }
 
@@ -12,22 +13,24 @@ const ACCEPTED_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/vnd.ms-powerpoint",
 ];
-const MAX_BYTES = 500 * 1024 * 1024; // 500 MB (correspond à la limite du bucket)
+const MAX_BYTES = 500 * 1024 * 1024; // 500 MB
 
 interface Props {
-  classes:  ClassOption[];
-  onClose:  () => void;
+  classes:    ClassOption[];
+  onClose:    () => void;
   onUploaded: () => void;
 }
 
 export function UploadModal({ classes, onClose, onUploaded }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const supabase     = createClient();
 
-  const [file,        setFile]        = useState<File | null>(null);
-  const [classIds,    setClassIds]    = useState<string[]>([]);
-  const [progress,    setProgress]    = useState(0);
-  const [uploading,   setUploading]   = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [file,       setFile]       = useState<File | null>(null);
+  const [classIds,   setClassIds]   = useState<string[]>([]);
+  const [progress,   setProgress]   = useState(0);
+  const [uploading,  setUploading]  = useState(false);
+  const [status,     setStatus]     = useState<string>("");
+  const [error,      setError]      = useState<string | null>(null);
 
   function toggleClass(id: string) {
     setClassIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -50,6 +53,14 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
     setFile(f);
   }
 
+  function detectType(f: File): "pdf" | "video" | "audio" | "pptx" | "other" {
+    if (f.type === "application/pdf") return "pdf";
+    if (f.type.startsWith("video/"))  return "video";
+    if (f.type.startsWith("audio/"))  return "audio";
+    if (f.type.includes("presentation") || /\.pptx?$/i.test(f.name)) return "pptx";
+    return "other";
+  }
+
   async function handleUpload() {
     if (!file) {
       setError("Sélectionnez un fichier.");
@@ -62,40 +73,81 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
     setError(null);
     setUploading(true);
     setProgress(0);
+    setStatus("Préparation…");
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("class_ids", JSON.stringify(classIds));
+    // Trackers pour rollback en cas d'erreur
+    let libraryId:  string | null = null;
+    let storagePath: string | null = null;
 
     try {
-      // XHR pour avoir la progression
-      const xhr = new XMLHttpRequest();
-      await new Promise<void>((resolve, reject) => {
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else {
-            try {
-              const data = JSON.parse(xhr.responseText);
-              reject(new Error(data.error ?? `Erreur ${xhr.status}`));
-            } catch {
-              reject(new Error(`Erreur ${xhr.status}`));
-            }
-          }
-        };
-        xhr.onerror = () => reject(new Error("Erreur réseau"));
-        xhr.open("POST", "/api/admin/library/upload");
-        xhr.send(form);
-      });
+      // ─── 1. Créer la bibliothèque ─────────────────────────────────────────
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Non authentifié");
 
+      const classNames = classes
+        .filter((c) => classIds.includes(c.id))
+        .map((c) => c.name)
+        .join(", ");
+
+      const { data: newLib, error: libError } = await supabase
+        .from("libraries")
+        .insert({
+          name:        file.name,
+          description: `Accessible par : ${classNames}`,
+          created_by:  user.id,
+        })
+        .select("id")
+        .single();
+      if (libError || !newLib) throw new Error(libError?.message ?? "Erreur création bibliothèque");
+      libraryId = newLib.id;
+
+      // ─── 2. Lier aux classes ──────────────────────────────────────────────
+      const { error: linksError } = await supabase
+        .from("library_classes")
+        .insert(classIds.map((cid) => ({ library_id: libraryId, class_id: cid })));
+      if (linksError) throw new Error(linksError.message);
+
+      // ─── 3. Obtenir une URL signée pour l'upload direct ───────────────────
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+      storagePath = `${libraryId}/${crypto.randomUUID()}.${ext}`;
+
+      const { data: signed, error: signError } = await supabase.storage
+        .from("library-files")
+        .createSignedUploadUrl(storagePath);
+      if (signError || !signed) throw new Error(signError?.message ?? "Erreur URL d'upload");
+
+      // ─── 4. PUT direct vers Supabase Storage (avec progress) ──────────────
+      setStatus("Upload en cours…");
+      await uploadWithProgress(signed.signedUrl, file, (pct) => setProgress(pct));
+
+      // ─── 5. Enregistrer le fichier dans library_files ─────────────────────
+      setStatus("Finalisation…");
+      const { error: fileError } = await supabase.from("library_files").insert({
+        library_id:   libraryId,
+        file_name:    file.name,
+        file_type:    detectType(file),
+        file_size:    file.size,
+        storage_path: storagePath,
+        uploaded_by:  user.id,
+      });
+      if (fileError) throw new Error(fileError.message);
+
+      // ─── Succès ───────────────────────────────────────────────────────────
       onUploaded();
       onClose();
     } catch (e) {
+      // Rollback : si on a créé la library, on la supprime (cascade sur library_classes)
+      // et si on a uploadé le fichier, on le retire du storage
+      if (libraryId) {
+        try { await supabase.from("libraries").delete().eq("id", libraryId); } catch { /* ignore */ }
+      }
+      if (storagePath) {
+        try { await supabase.storage.from("library-files").remove([storagePath]); } catch { /* ignore */ }
+      }
       setError(e instanceof Error ? e.message : "Erreur d'upload");
     } finally {
       setUploading(false);
+      setStatus("");
     }
   }
 
@@ -109,7 +161,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-40" onClick={uploading ? undefined : onClose} />
 
       <div className="fixed right-0 top-0 h-full w-full max-w-[480px] bg-white shadow-elevated z-50 flex flex-col">
 
@@ -258,7 +310,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
           {uploading && (
             <div>
               <div className="flex justify-between text-[0.72rem] mb-1.5">
-                <span className="text-muted-fg">Upload en cours…</span>
+                <span className="text-muted-fg">{status}</span>
                 <span className="font-semibold text-[#141414]">{progress}%</span>
               </div>
               <div className="w-full bg-muted-bg rounded-full h-2 overflow-hidden">
@@ -277,7 +329,7 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
             </svg>
             <p className="text-[0.72rem] text-muted-fg">
               Ce fichier sera consultable en ligne uniquement par les élèves et professeurs
-              de la classe. Le téléchargement est désactivé.
+              des classes sélectionnées. Le téléchargement est désactivé.
             </p>
           </div>
         </div>
@@ -291,4 +343,27 @@ export function UploadModal({ classes, onClose, onUploaded }: Props) {
       </div>
     </>
   );
+}
+
+// ─── Helper : upload via XHR avec progression ───────────────────────────────
+function uploadWithProgress(
+  signedUrl: string,
+  file: File,
+  onProgress: (pct: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`Upload échoué (${xhr.status})`));
+    };
+    xhr.onerror = () => reject(new Error("Erreur réseau"));
+    // Le Content-Type est implicitement géré par Supabase, mais on le précise
+    xhr.open("PUT", signedUrl);
+    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+    xhr.send(file);
+  });
 }

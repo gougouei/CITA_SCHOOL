@@ -40,8 +40,9 @@ function formatSize(bytes: number) {
 const SIZE_BY_TYPE: Record<FileType, string> = {
   audio: "w-full max-w-md  max-h-[480px]",
   video: "w-full max-w-3xl max-h-[80vh]",
-  pdf:   "w-full max-w-5xl h-[90vh]",
-  pptx:  "w-full max-w-5xl h-[85vh]",
+  // PDF : quasi plein écran (taille initiale)
+  pdf:   "w-full h-full max-w-none max-h-none",
+  pptx:  "w-full h-full max-w-none max-h-none",
   other: "w-full max-w-2xl max-h-[70vh]",
 };
 
@@ -148,18 +149,83 @@ export function ReaderModal({ file, onClose }: Props) {
   );
 }
 
-// ─── Vidéo (taille réduite) ──────────────────────────────────────────────────
+// ─── Vidéo avec contrôles de vitesse personnalisés ──────────────────────────
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+
 function VideoReader({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [speed, setSpeed] = useState(1);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+
+  function changeSpeed(s: number) {
+    setSpeed(s);
+    setShowSpeedMenu(false);
+    if (videoRef.current) videoRef.current.playbackRate = s;
+  }
+
   return (
-    <div className="w-full h-full flex items-center justify-center p-2 sm:p-4">
+    <div className="w-full h-full flex flex-col items-center justify-center p-2 sm:p-4 gap-2">
       <video
+        ref={videoRef}
         src={url}
         controls
         controlsList="nodownload noremoteplayback noplaybackrate"
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
-        className="max-w-full max-h-full rounded-lg"
+        onLoadedMetadata={() => { if (videoRef.current) videoRef.current.playbackRate = speed; }}
+        className="max-w-full max-h-full rounded-lg flex-1 min-h-0"
       />
+
+      {/* Barre de contrôles personnalisée — vitesse */}
+      <div className="flex items-center gap-2 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex-shrink-0">
+        <span className="text-white/70 text-[0.7rem] font-medium hidden sm:inline">Vitesse :</span>
+
+        {/* Boutons rapides 1x / 1.5x / 2x */}
+        <div className="flex items-center gap-1">
+          {[1, 1.5, 2].map((s) => (
+            <button
+              key={s}
+              onClick={() => changeSpeed(s)}
+              className={`px-2 py-0.5 rounded-full text-[0.7rem] font-semibold transition-colors ${
+                speed === s
+                  ? "bg-white text-[#141414]"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              {s}x
+            </button>
+          ))}
+        </div>
+
+        {/* Menu déroulant pour les autres vitesses */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSpeedMenu((v) => !v)}
+            className="px-2 py-0.5 rounded-full text-[0.7rem] font-semibold text-white/70 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1"
+            aria-label="Plus de vitesses"
+          >
+            Plus
+            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          {showSpeedMenu && (
+            <div className="absolute bottom-full right-0 mb-1 bg-black/90 backdrop-blur rounded-lg border border-white/10 py-1 min-w-[80px] shadow-elevated">
+              {SPEEDS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => changeSpeed(s)}
+                  className={`block w-full text-left px-3 py-1 text-[0.75rem] hover:bg-white/10 transition-colors ${
+                    speed === s ? "text-white font-bold" : "text-white/70"
+                  }`}
+                >
+                  {s}x {s === 1 && "(normal)"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
