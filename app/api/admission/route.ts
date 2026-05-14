@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 const MARITAL_VALUES = ["single", "married", "divorced", "widowed"] as const;
@@ -57,7 +57,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Situation matrimoniale invalide." }, { status: 400 });
   }
 
-  const supabase = await createServerSupabaseClient();
+  // On utilise le service_role pour insérer la demande : le formulaire est
+  // public, l'utilisateur n'est pas authentifié, et toutes les validations
+  // ont été faites ci-dessus. Le service_role bypass RLS et évite tout
+  // problème de propagation de session pour ce flow public.
+  const supabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const { data, error } = await supabase
     .from("admission_requests")
