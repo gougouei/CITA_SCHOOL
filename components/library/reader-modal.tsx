@@ -225,13 +225,15 @@ function VideoReader({ url }: { url: string }) {
   );
 }
 
-// ─── Audio (lecteur custom compact) ──────────────────────────────────────────
+// ─── Audio (lecteur custom compact + vitesses) ───────────────────────────────
 function AudioReader({ url, fileName }: { url: string; fileName: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [playing,  setPlaying]  = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [current,  setCurrent]  = useState(0);
+  const [playing,        setPlaying]        = useState(false);
+  const [progress,       setProgress]       = useState(0);
+  const [duration,       setDuration]       = useState(0);
+  const [current,        setCurrent]        = useState(0);
+  const [speed,          setSpeed]          = useState(1);
+  const [showSpeedMenu,  setShowSpeedMenu]  = useState(false);
 
   function togglePlay() {
     if (!audioRef.current) return;
@@ -249,6 +251,11 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
     audioRef.current.currentTime = (parseFloat(e.target.value) / 100) * (audioRef.current.duration || 0);
     setProgress(parseFloat(e.target.value));
   }
+  function changeSpeed(s: number) {
+    setSpeed(s);
+    setShowSpeedMenu(false);
+    if (audioRef.current) audioRef.current.playbackRate = s;
+  }
   function fmt(s: number) {
     return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
   }
@@ -262,6 +269,8 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
         <p className="text-white font-semibold text-sm break-words line-clamp-2">{fileName.replace(/\.[^.]+$/, "")}</p>
         <p className="text-white/50 text-xs mt-1">CITSA Occulte School</p>
       </div>
+
+      {/* Barre de progression */}
       <div className="w-full flex flex-col gap-1.5">
         <input
           type="range"
@@ -276,6 +285,8 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
           <span>{duration ? fmt(duration) : "--:--"}</span>
         </div>
       </div>
+
+      {/* Contrôles principaux */}
       <div className="flex items-center gap-5">
         <button
           onClick={() => { if (audioRef.current) audioRef.current.currentTime -= 10; }}
@@ -305,13 +316,59 @@ function AudioReader({ url, fileName }: { url: string; fileName: string }) {
           </svg>
         </button>
       </div>
+
+      {/* Contrôles de vitesse — barre compacte */}
+      <div className="flex items-center gap-1 bg-white/5 backdrop-blur rounded-full px-2 py-1 border border-white/10">
+        <span className="text-white/50 text-[0.62rem] font-medium px-1.5 uppercase tracking-wider">Vitesse</span>
+        {[1, 1.5, 2].map((s) => (
+          <button
+            key={s}
+            onClick={() => changeSpeed(s)}
+            className={`px-2 py-0.5 rounded-full text-[0.68rem] font-semibold transition-colors ${
+              speed === s
+                ? "bg-white text-[#141414]"
+                : "text-white/60 hover:text-white hover:bg-white/10"
+            }`}
+          >
+            {s}x
+          </button>
+        ))}
+        <div className="relative">
+          <button
+            onClick={() => setShowSpeedMenu((v) => !v)}
+            className="px-2 py-0.5 rounded-full text-[0.68rem] font-semibold text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Plus de vitesses"
+          >
+            ⋯
+          </button>
+          {showSpeedMenu && (
+            <div className="absolute bottom-full right-0 mb-1 bg-black/95 backdrop-blur rounded-lg border border-white/10 py-1 min-w-[110px] shadow-elevated z-10">
+              {SPEEDS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => changeSpeed(s)}
+                  className={`block w-full text-left px-3 py-1.5 text-[0.72rem] hover:bg-white/10 transition-colors ${
+                    speed === s ? "text-white font-bold" : "text-white/70"
+                  }`}
+                >
+                  {s}x {s === 1 && "(normal)"}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       <audio
         ref={audioRef}
         src={url}
         controlsList="nodownload"
         onContextMenu={(e) => e.preventDefault()}
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+        onLoadedMetadata={() => {
+          setDuration(audioRef.current?.duration ?? 0);
+          if (audioRef.current) audioRef.current.playbackRate = speed;
+        }}
         onEnded={() => setPlaying(false)}
         className="hidden"
       />

@@ -1,19 +1,20 @@
 # CITSA OCCULTE SCHOOL INTERNATIONAL — Contexte Projet
 
 > Fichier de référence complet. Redonner ce fichier à Claude Code en début de session pour restaurer tout le contexte.
-> **Dernière mise à jour : v0.3.1**
+> **Dernière mise à jour : v0.7.1**
 
 ---
 
 ## 1. Présentation du projet
 
 Application web pour **CITSA Occulte School International**, une école mystico négro-africaine.
-Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numériques, cours live, exercices, admissions et calendrier d'événements.
+Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numériques, cours live, exercices, admissions, calendrier d'événements, chat privé et un feed social CitsaOccultBlog.
 
 **Repo GitHub :** https://github.com/gougouei/CITA_SCHOOL
 **Répertoire local :** `/Users/mac/Documents/cita_school`
 **Branche principale :** `main`
-**Dernière version taguée :** `v0.3.1`
+**Dernière version taguée :** `v0.7.1`
+**Déploiement :** Vercel (auto-déploie chaque push sur `main`)
 
 ---
 
@@ -21,12 +22,14 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 
 | Couche | Technologie |
 |--------|-------------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 15.5+ (App Router) |
 | Style | TailwindCSS 3 + design tokens CITSA |
 | Langage | TypeScript (strict) |
-| Base de données | **Supabase configuré ✅** (Auth + PostgreSQL + Storage + Realtime) |
+| Base de données | **Supabase** (Auth + PostgreSQL + Storage + Realtime) |
 | Composants | CVA (class-variance-authority) |
 | Icons | lucide-react |
+| Live vidéo | **Jitsi Meet** (instance publique meet.jit.si) |
+| PDF | **react-pdf** (PDF.js worker servi en local) |
 
 ### Projet Supabase
 - **Nom :** CITA_SCHOOL
@@ -79,7 +82,7 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
   - `admin`     → `/admin`
   - `professor` → `/professeur`
   - `student`   → `/etudiant`
-- **Middleware** : **réactivé ✅** — vérifie auth + rôle + statut actif sur toutes les routes protégées
+- **Middleware** : vérifie auth + rôle + statut actif sur toutes les routes protégées
 - **Déconnexion** : depuis la sidebar, appelle `supabase.auth.signOut()` et redirige vers `/connexion`
 
 ### Compte admin initial
@@ -97,13 +100,16 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 | `profiles` | Liée à `auth.users` · username, full_name, role, is_active, avatar_url |
 | `classes` | Nom, description, created_by |
 | `class_members` | Lien classe ↔ user (role professor/student) |
-| `libraries` + `library_classes` + `library_files` | Bibliothèques de fichiers par classe |
-| `admission_requests` | Demandes d'admission (toutes les infos du formulaire + photo) |
-| `live_sessions` + `live_session_classes` | Cours en direct |
-| `exercises` + `exercise_questions` + `exercise_submissions` | Exercices/QCM avec soumissions |
-| `chat_channels` + `chat_channel_members` + `chat_messages` | Messagerie temps réel |
-| `notifications` | Notifications utilisateur |
-| `calendar_events` | **Nouveau** — événements calendrier par classe |
+| `libraries` + `library_classes` + `library_files` | Bibliothèques de fichiers · 1 lib par fichier liée à N classes |
+| `admission_requests` | Demandes d'admission (toutes infos + photo + email + nombre enfants) |
+| `live_sessions` + `live_session_classes` | Cours en direct + broadcasts |
+| `exercises` + `exercise_questions` + `exercise_submissions` | Exercices/QCM (schéma prêt, UI à venir) |
+| `chat_channels` + `chat_channel_members` + `chat_messages` | Messagerie temps réel · `last_read_at` pour les badges unread |
+| `notifications` | Notifications utilisateur (schéma prêt, UI à venir) |
+| `calendar_events` | Événements calendrier (par classe ou général) |
+| **`blog_posts`** | Publications du feed social · texte + media + repost |
+| **`blog_likes`** | Likes (PK composite post_id+user_id) |
+| **`blog_comments`** | Commentaires sur les posts |
 
 ### Types enum
 - `user_role` : admin, professor, student
@@ -120,7 +126,7 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 
 ### Triggers
 - `handle_new_user` → crée automatiquement le profil après inscription Supabase Auth (lit `raw_user_meta_data`)
-- `set_updated_at` (générique) → applique `updated_at = now()` sur UPDATE pour profiles, classes, libraries, exercises, calendar_events
+- `set_updated_at` (générique) → applique `updated_at = now()` sur UPDATE pour profiles, classes, libraries, exercises, calendar_events, blog_posts
 - `create_class_chat_channel` → crée un channel de chat à la création d'une classe
 - `sync_class_member_to_chat` → ajoute un membre au channel quand on l'ajoute à une classe
 - `remove_class_member_from_chat` → retire du channel quand on retire de la classe
@@ -131,6 +137,11 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 - `is_admin()` → true si user connecté est admin actif
 - `is_class_member(class_id)` → true si user connecté est membre de la classe
 - `is_class_professor(class_id)` → true si user connecté est prof de la classe
+- `is_live_host(session_id)` → true si user est hôte du live (anti-récursion live_sessions)
+- `is_current_user_channel_member(channel_id)` → true si user est membre du channel (anti-récursion chat)
+- `find_direct_channel(user_a, user_b)` → retourne l'ID d'un DM existant entre 2 users (sinon null)
+- `unread_counts()` → retourne `(channel_id, unread_count)` pour le user courant
+- `unread_total()` → retourne le total des messages non lus
 
 ### Storage buckets
 | Bucket | Public ? | Description |
@@ -138,19 +149,21 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 | `admission-photos` | ✅ Public | Photos uploadées dans le formulaire d'admission (5 MB max) |
 | `avatars` | ✅ Public | Avatars utilisateurs · chemin `{user_id}/avatar-{timestamp}.{ext}` (3 MB max) |
 | `library-files` | ❌ Privé | Fichiers de bibliothèque — URLs signées · accès via class membership (500 MB max) |
+| **`blog-media`** | ✅ Public | Photos & vidéos courtes des posts CitsaOccultBlog (100 MB max) |
 
 ### RLS Policies — résumé
 - **profiles** : lecture par soi + class members + admin · update son propre profil (sauf role)
 - **classes** : lecture par membres + admin · CRUD admin
 - **class_members** : lecture par soi/membres · CRUD admin
-- **libraries / library_files** : lecture si membre d'une classe assignée · CRUD admin
+- **libraries / library_files** : admin gère tout · class members lisent
 - **admission_requests** : insert public (formulaire) · CRUD admin
-- **live_sessions** : lecture par membres concernés · prof crée pour ses classes · admin tout
+- **live_sessions** : lecture par membres concernés (ou tous pour broadcasts) · prof crée pour ses classes · admin tout
 - **exercises** : lecture par membres de classe · CRUD par prof de la classe
 - **exercise_submissions** : student crée la sienne · prof voit/note celles de ses classes
-- **chat_channels / messages** : lecture/écriture par membres
+- **chat_channels / messages / members** : lecture/écriture par membres · UPDATE de `last_read_at` autorisée sur sa propre ligne
 - **notifications** : lecture/update par destinataire
 - **calendar_events** : lecture tous · création prof (pour ses classes) ou admin
+- **blog_posts / likes / comments** : lecture tous (authentifiés) · écriture sur ses propres lignes · admin peut supprimer pour modération
 
 ---
 
@@ -159,101 +172,101 @@ shadow-elevated : 0 12px 40px -8px rgba(0,0,0,.15)
 ```
 cita_school/
 ├── app/
-│   ├── page.tsx                              # Landing page + formulaire admission
+│   ├── page.tsx                              # Landing page + Hero avec image-maitre.png en fond
 │   ├── connexion/page.tsx                    # Page de connexion
 │   ├── admin/
-│   │   ├── layout.tsx                        # Sidebar admin + AdminDataProvider
-│   │   ├── page.tsx                          # Vue d'ensemble (KPIs réels, dernières admissions)
-│   │   ├── etudiants/page.tsx                # CRUD étudiants connecté à Supabase
-│   │   ├── professeurs/page.tsx              # CRUD professeurs connecté à Supabase
-│   │   ├── classes/page.tsx                  # CRUD classes connecté à Supabase
-│   │   ├── bibliotheques/page.tsx            # Bibliothèques (par classe + type)
-│   │   ├── admissions/page.tsx               # Liste demandes + modal détails + approuver/rejeter
-│   │   ├── broadcast/page.tsx                # Interface broadcast
-│   │   ├── profil/page.tsx                   # Page profil admin
-│   │   └── calendrier/page.tsx               # Calendrier admin
+│   │   ├── layout.tsx                        # Sidebar admin
+│   │   ├── page.tsx                          # Vue d'ensemble (KPIs réels)
+│   │   ├── etudiants/page.tsx                # CRUD étudiants + modal création/édition
+│   │   ├── professeurs/page.tsx              # CRUD professeurs idem
+│   │   ├── classes/page.tsx                  # CRUD classes
+│   │   ├── bibliotheques/page.tsx            # Upload + lecteurs + filtres
+│   │   ├── admissions/page.tsx               # Liste + détails + approuver/rejeter
+│   │   ├── broadcast/page.tsx                # Lancer broadcast pour tout le monde
+│   │   ├── communaute/page.tsx               # CitsaOccultBlog (admin)
+│   │   ├── profil/page.tsx
+│   │   └── calendrier/page.tsx
 │   ├── professeur/
 │   │   ├── layout.tsx
-│   │   ├── page.tsx                          # Mes classes (chargées depuis Supabase)
-│   │   ├── live/page.tsx                     # État vide (à venir)
-│   │   ├── exercices/page.tsx                # État vide (à venir)
-│   │   ├── bibliotheques/page.tsx            # Filtre par classe + lecteurs
-│   │   ├── messagerie/page.tsx               # État vide (à venir)
-│   │   ├── profil/page.tsx                   # Page profil prof
-│   │   └── calendrier/page.tsx               # Calendrier prof
+│   │   ├── page.tsx                          # Mes classes
+│   │   ├── live/page.tsx                     # Lancer un live + broadcasts visibles
+│   │   ├── exercices/page.tsx                # ⏳ État vide
+│   │   ├── bibliotheques/page.tsx            # Lecteurs intégrés par classe
+│   │   ├── messagerie/page.tsx               # Chat temps réel (ChatPage partagé)
+│   │   ├── communaute/page.tsx               # CitsaOccultBlog (prof)
+│   │   ├── profil/page.tsx                   # + classes enseignées
+│   │   └── calendrier/page.tsx
 │   ├── etudiant/
 │   │   ├── layout.tsx
 │   │   ├── page.tsx                          # Dashboard (vraies classes)
-│   │   ├── live/page.tsx                     # État vide (à venir)
-│   │   ├── exercices/page.tsx                # État vide (à venir)
-│   │   ├── bibliotheques/page.tsx            # Lecteurs intégrés + état vide
-│   │   ├── messagerie/page.tsx               # État vide (à venir)
-│   │   ├── profil/page.tsx                   # Page profil étudiant
-│   │   └── calendrier/page.tsx               # Calendrier étudiant
+│   │   ├── live/page.tsx                     # Liste lives + broadcasts
+│   │   ├── exercices/page.tsx                # ⏳ État vide
+│   │   ├── bibliotheques/page.tsx            # Lecteurs intégrés
+│   │   ├── messagerie/page.tsx               # Chat temps réel
+│   │   ├── communaute/page.tsx               # CitsaOccultBlog (étudiant)
+│   │   ├── profil/page.tsx                   # + mes classes
+│   │   └── calendrier/page.tsx               # Lecture seule
 │   └── api/
-│       ├── auth/login/route.ts               # POST login (username → email interne)
-│       ├── auth/logout/route.ts              # POST logout
-│       ├── admission/route.ts                # POST formulaire admission (avec photo)
-│       ├── admin/create-user/                # POST créer utilisateur manuellement
-│       ├── admin/approve-admission/          # POST approuver + créer compte automatiquement
-│       ├── admin/delete-user/                # POST supprimer utilisateur
-│       ├── admin/reset-password/             # POST réinitialiser mot de passe
-│       └── student/submit-exercise/          # POST soumettre exercice
+│       ├── auth/login/route.ts
+│       ├── auth/logout/route.ts
+│       ├── admission/route.ts                # POST formulaire admission
+│       ├── admin/create-user/
+│       ├── admin/approve-admission/
+│       ├── admin/delete-user/
+│       ├── admin/reset-password/
+│       ├── admin/start-broadcast/            # POST broadcast (admin)
+│       ├── chat/start-dm/                    # POST créer DM entre 2 users d'une même classe
+│       ├── library/signed-url/               # POST génère signed URL pour lecture privée
+│       ├── live/access/                      # POST vérifie + retourne room Jitsi
+│       ├── professor/start-live/
+│       ├── professor/end-live/
+│       └── student/submit-exercise/
 │
 ├── components/
-│   ├── admission-form.tsx                    # Formulaire d'admission (client component complet)
-│   ├── profile-page.tsx                      # Page profil partagée (upload avatar + nom)
-│   ├── calendar/
-│   │   ├── types.ts                          # Types & config des event_types
-│   │   ├── calendar-page.tsx                 # Vue mensuelle partagée
-│   │   ├── event-form-modal.tsx              # Création/édition (admin + prof)
-│   │   └── event-detail-modal.tsx            # Détails événement (lecture pour étudiant)
+│   ├── admission-form.tsx
+│   ├── profile-page.tsx                      # Partagée admin/prof/étudiant + classes
+│   ├── calendar/                             # Vue mensuelle + modal events
+│   ├── live/                                 # LiveRoom Jitsi (vidéo)
+│   ├── chat/                                 # ChatPage + ConvList + NewDirectModal
+│   ├── blog/                                 # PostComposer + PostCard + Comments
+│   ├── library/
+│   │   ├── reader-modal.tsx                  # Lecteur unifié (PDF/audio/vidéo/PPTX)
+│   │   ├── pdf-reader.tsx                    # Lecteur PDF custom (react-pdf)
+│   │   └── upload-modal.tsx                  # Upload direct vers Supabase + multi-classes
 │   ├── layout/
-│   │   ├── dashboard-layout.tsx              # Charge le profil user + écoute événements
-│   │   ├── sidebar.tsx                       # Avec avatar dynamique + lien profil + déconnexion
-│   │   ├── navbar.tsx                        # Navbar landing page
-│   │   └── footer.tsx                        # Footer landing page
+│   │   ├── dashboard-layout.tsx              # Charge profil + badges dynamiques
+│   │   ├── sidebar.tsx
+│   │   ├── navbar.tsx
+│   │   └── footer.tsx
 │   └── ui/
-│       ├── button.tsx                        # Variants CVA
+│       ├── button.tsx
 │       ├── badge.tsx
 │       ├── card.tsx
 │       ├── input.tsx
 │       └── alert.tsx
 │
 ├── contexts/
-│   └── admin-data.tsx                        # Context classes partagé (utilisation décroissante)
-│
-├── services/                                 # Services (la plupart maintenant inline dans les pages)
-│   ├── auth.service.ts
-│   ├── admin.service.ts
-│   ├── professor.service.ts
-│   ├── student.service.ts
-│   ├── chat.service.ts
-│   ├── notification.service.ts
-│   └── admission.service.ts
-│
-├── hooks/                                    # Hooks (réservés pour la suite)
-│   ├── use-auth.ts
-│   ├── use-realtime-chat.ts
-│   ├── use-notifications.ts
-│   └── use-live-status.ts
+│   └── admin-data.tsx                        # Context classes partagé (legacy)
 │
 ├── lib/
-│   ├── supabase.ts                           # Client Supabase browser
-│   ├── supabase-server.ts                    # Client Supabase server/SSR
-│   └── utils.ts                              # cn() helper
+│   ├── supabase.ts                           # Client browser
+│   └── supabase-server.ts                    # Client SSR
 │
-├── types/index.ts                            # AdmissionRequest, Profile, Class, etc.
+├── types/index.ts
 ├── utils/
-│   ├── credentials.ts                        # generateUsername + generatePassword
-│   └── grading.ts                            # autoGrade(questions, answers)
+│   ├── credentials.ts
+│   └── grading.ts
 │
-├── middleware.ts                             # Réactivé — protection par rôle
+├── public/
+│   ├── image-maitre.png                      # Image fond Hero
+│   └── pdf.worker.min.mjs                    # Worker PDF.js (copié au postinstall)
+│
+├── middleware.ts                             # Protection par rôle
+├── next.config.ts                            # Headers Permissions-Policy pour Jitsi
 ├── tailwind.config.ts
-├── next.config.ts
-├── .env.local                                # Clés Supabase configurées
+├── package.json                              # Script postinstall copie le worker PDF
+├── .env.local
 ├── .env.local.example
-├── logic.md                                  # Spec logique métier
 └── context.md                                # CE FICHIER
 ```
 
@@ -264,37 +277,40 @@ cita_school/
 ### 🛡️ Espace Admin (`/admin`)
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
-| Vue d'ensemble | ✅ Supabase | KPIs réels (étudiants, profs, classes, bibliothèques) · Dernières admissions cliquables |
-| Étudiants | ✅ Supabase | Table avec avatars · Modal édition (infos, classes, sécurité) · Modal création (génère credentials via API) · Toggle actif/inactif |
-| Professeurs | ✅ Supabase | Idem étudiants pour les profs |
-| Classes | ✅ Supabase | Cards avec profs assignés · Modal création/édition · Suppression |
-| Bibliothèques | ✅ Supabase | Filtre classe + type · État vide propre · Upload à brancher |
-| Admissions | ✅ Supabase | Liste filtrée · Modal détails complet · **Approuver = crée auto le compte étudiant + retourne credentials** |
-| Calendrier | ✅ Supabase | Vue mensuelle · Création événements (avec ou sans classe) · Modal détails |
-| Profil | ✅ Supabase | Upload avatar · Édition nom complet |
-| Broadcast | ⏳ Mockup | Interface UI, pas encore branché |
+| Vue d'ensemble | ✅ Supabase | KPIs réels (étudiants, profs, classes, bibliothèques) · Dernières admissions |
+| Étudiants | ✅ Supabase | CRUD complet · Modal création (credentials via API) · Toggle actif |
+| Professeurs | ✅ Supabase | Idem étudiants |
+| Classes | ✅ Supabase | CRUD + sélection profs |
+| Bibliothèques | ✅ **Full** | Upload direct Supabase (multi-classes) + lecteurs intégrés + suppression |
+| Admissions | ✅ Supabase | Liste + détails + approuver = crée compte étudiant auto |
+| Calendrier | ✅ Supabase | Création événements (global ou par classe) |
+| Profil | ✅ Supabase | Upload avatar + édition nom |
+| Communauté | ✅ Supabase | CitsaOccultBlog (poster, liker, commenter, repartager) |
+| Broadcast | ✅ Supabase | Lancer un broadcast Jitsi visible par tous (admin/prof/étudiant) |
 
 ### 👨‍🏫 Espace Professeur (`/professeur`)
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
-| Mes Classes | ✅ Supabase | Charge les vraies classes assignées avec compteur étudiants |
-| Cours Live | ✅ Jitsi | Lancer un live pour une classe assignée · Modérateur · Recording via Dropbox |
-| Exercices | ⏳ État vide | Bouton "+ Créer" désactivé |
-| Bibliothèques | ✅ Supabase | Filtre par classe · Lecteurs intégrés (video/audio/PDF/PPTX) · Pas de téléchargement |
-| Messagerie | ⏳ État vide | "Vous serez ajouté aux canaux des classes assignées" |
-| Calendrier | ✅ Supabase | Création limitée aux classes assignées du prof |
-| Profil | ✅ Supabase | Upload avatar · Édition nom complet |
+| Mes Classes | ✅ Supabase | Classes assignées + compteur étudiants |
+| Cours Live | ✅ Jitsi | Lancer un live pour sa classe + voir les broadcasts admin |
+| Exercices | ⏳ État vide | À implémenter |
+| Bibliothèques | ✅ Supabase | Lecteurs intégrés (vidéo avec contrôle vitesse, PDF custom complet, audio, PPTX) |
+| Messagerie | ✅ Realtime | Chat de classe + DMs avec membres des classes (badges unread) |
+| Calendrier | ✅ Supabase | Création limitée à ses classes |
+| Profil | ✅ Supabase | + section "Classes enseignées" |
+| Communauté | ✅ Supabase | CitsaOccultBlog (mêmes droits que tous) |
 
 ### 🎓 Espace Étudiant (`/etudiant`)
 | Page | État | Fonctionnalités |
 |------|------|-----------------|
-| Tableau de bord | ✅ Supabase | Vraies classes de l'étudiant · État vide notifications |
-| Cours Live | ✅ Jitsi | Liste lives actifs des classes · Auto-refresh 20s · Rejoindre en un clic |
-| Exercices | ⏳ État vide | "Aucun exercice disponible" |
-| Bibliothèques | ✅ Supabase | Fichiers groupés par classe · Lecteurs intégrés · Non téléchargeable |
-| Messagerie | ⏳ État vide | "Aucune conversation" |
-| Calendrier | ✅ Supabase | **Lecture seule** — pas de bouton "Nouvel événement" |
-| Profil | ✅ Supabase | Upload avatar · Édition nom complet |
+| Tableau de bord | ✅ Supabase | Vraies classes + état vide notifications |
+| Cours Live | ✅ Jitsi | Lives de ses classes + broadcasts (auto-refresh 20s) |
+| Exercices | ⏳ État vide | À implémenter |
+| Bibliothèques | ✅ Supabase | Lecteurs intégrés non téléchargeables |
+| Messagerie | ✅ Realtime | Chat de classe + DMs avec membres |
+| Calendrier | ✅ Supabase | Lecture seule |
+| Profil | ✅ Supabase | + section "Mes classes" |
+| Communauté | ✅ Supabase | CitsaOccultBlog (poster, liker, commenter, repartager) |
 
 ---
 
@@ -302,150 +318,194 @@ cita_school/
 
 1. **Visiteur** sur la landing → remplit le formulaire d'admission
    - 11 champs obligatoires + 1 optionnel : nom, prénoms, email, date naissance, pays naissance, pays résidence, situation matrimoniale, nombre d'enfants, profession, motivation, **photo d'identité** (JPG/PNG/WEBP, 5 MB max)
-   - La photo est uploadée dans le bucket `admission-photos` avec un nom UUID
-   - La demande est insérée dans `admission_requests` avec `photo_url` publique
+   - La photo est uploadée dans le bucket `admission-photos`
    - Email obligatoire et unique
-2. **Admin** consulte `/admin/admissions` → voit la liste avec vignettes photo
-3. Admin clique **"Détails"** → panneau slide-in avec toutes les infos + grande photo
+2. **Admin** consulte `/admin/admissions` → vignettes photo
+3. Admin clique **"Détails"** → panneau slide-in
 4. Admin clique **"Approuver & créer le compte"** → route `/api/admin/approve-admission`
-   - Génère un username unique (`prenom.nom` ou `prenom.nom2`...) + mot de passe sécurisé
-   - Crée l'auth user via service_role (`adminClient.auth.admin.createUser`)
+   - Génère un username unique + mot de passe sécurisé
+   - Crée l'auth user via service_role
    - Le trigger `handle_new_user` crée le profil
    - Copie `admission.photo_url` → `profile.avatar_url`
-   - Marque l'admission `approved` avec `reviewed_by` et `reviewed_at`
-5. Modal "Compte créé" s'affiche avec username + mot de passe **copiables**
-6. L'étudiant apparaît automatiquement dans `/admin/etudiants` (puisque c'est juste un `SELECT WHERE role='student'`)
-
-> La création **manuelle** d'étudiants est toujours possible via `/admin/etudiants` → bouton "+ Créer un compte"
+   - Marque l'admission `approved`
+5. Modal "Compte créé" avec credentials **copiables**
+6. L'étudiant apparaît dans `/admin/etudiants`
 
 ---
 
-## 9. Page profil — Upload avatar
+## 9. Système de cours live — Jitsi Meet
 
-Composant partagé : `components/profile-page.tsx`, rendu par les 3 pages `/admin/profil`, `/professeur/profil`, `/etudiant/profil`.
+### Architecture
+- Provider : **Jitsi Meet** (instance publique `meet.jit.si`)
+- Rooms privées avec noms UUID non-devinables (`citsa-{uuid}`)
+- Headers `Permissions-Policy` dans `next.config.ts` pour autoriser iframe + Safari/mobile
 
-- Chemin de stockage : `avatars/{user_id}/avatar-{timestamp}.{ext}`
-- RLS sur storage : seul l'user peut écrire dans son propre dossier (`storage.foldername(name))[1] = auth.uid()`
-- Validation côté client : JPG/PNG/WEBP, 3 MB max
-- Après upload : `profiles.avatar_url` est mis à jour
-- **Synchronisation sidebar** : un `CustomEvent("profile-updated")` est émis et le DashboardLayout écoute → l'avatar dans la sidebar se met à jour **instantanément** sans recharger la page
+### Composant : `components/live/live-room.tsx`
+- Charge dynamiquement `external_api.js` (avec polling de secours)
+- UI Jitsi prebuilt complète (vidéo, audio, screen share, chat, raise hand, recording)
+- Toolbar différent pour modérateur vs participant
+
+### Routes API
+- `POST /api/professor/start-live` — class_live (1 classe)
+- `POST /api/admin/start-broadcast` — broadcast (tous les utilisateurs)
+- `POST /api/professor/end-live` — termine la session
+- `POST /api/live/access` — vérifie l'accès et retourne room_name
+
+### Sécurité
+- L'URL Jitsi n'est jamais exposée publiquement
+- Pour un broadcast : tous les authentifiés peuvent rejoindre
+- Pour un class_live : seuls membres de la classe + admin
+
+### Badge dynamique "Cours Live"
+Le menu **"Cours Live"** affiche un badge avec le nombre de lives actifs visibles (broadcasts + lives de ses classes). Polling 30s + event `lives-changed`.
 
 ---
 
 ## 10. Système calendrier
 
 ### Composant : `components/calendar/`
-- **types.ts** : 5 types d'événements avec couleurs (cours_live, examen, ceremonie, reunion, autre)
-- **calendar-page.tsx** : grille mensuelle 7×6, navigation prev/next/today, sidebar "Prochains événements" + légende
-- **event-form-modal.tsx** : création/édition (admin + prof seulement)
-- **event-detail-modal.tsx** : détails (read-only pour étudiant)
+- 5 types d'événements avec couleurs (cours_live, examen, ceremonie, reunion, autre)
+- Vue mensuelle 7×6, navigation prev/next/today
+- Sidebar "Prochains événements" + légende
 
 ### Logique d'accès
-- **Tout le monde lit** tous les événements
-- **Admin** : peut créer pour n'importe quelle classe OU sans classe (général)
-- **Prof** : doit obligatoirement choisir une classe parmi celles qu'il enseigne
-- **Étudiant** : pas de bouton "Nouvel événement", clic sur événement = modal détails read-only
+- Tout le monde lit
+- Admin : peut créer pour n'importe quelle classe OU sans classe
+- Prof : doit choisir une classe parmi celles qu'il enseigne
+- Étudiant : lecture seule
 
-### Badge dynamique
-Le menu **"Calendrier"** affiche un badge avec le nombre d'événements à venir (`start_at >= now`) pour les **étudiants et professeurs**. Le badge se met à jour automatiquement via `CustomEvent("calendar-events-changed")` après création/édition/suppression.
-
----
-
-## 10.5 Système de cours live — Jitsi Meet
-
-### Architecture
-- Provider : **Jitsi Meet** (instance publique `meet.jit.si` par défaut, configurable via `NEXT_PUBLIC_JITSI_DOMAIN`)
-- Aucun compte, aucune carte bancaire requis
-- Rooms privées avec noms UUID non-devinables (`citsa-{uuid}`)
-
-### Composant : `components/live/live-room.tsx`
-- Charge dynamiquement le script Jitsi `external_api.js`
-- Instancie `JitsiMeetExternalAPI` dans un iframe plein écran
-- Polling de secours si onLoad ne se déclenche pas (cache navigateur)
-- UI Jitsi prebuilt complète (vidéo, audio, screen share, chat, raise hand, recording)
-- Toolbar différent pour modérateur vs participant
-
-### Routes API
-- `POST /api/professor/start-live` — crée une live_session + génère room name UUID
-- `POST /api/professor/end-live` — marque la session terminée
-- `POST /api/live/access` — vérifie l'auth + le rôle, retourne room_name + is_moderator
-
-### Sécurité
-- L'URL Jitsi n'est jamais exposée publiquement — seul `/api/live/access` la renvoie après vérification
-- Vérifications RLS + auth :
-  - Admin : accès à tout
-  - Prof hôte : modérateur de son propre live
-  - Étudiant : doit être membre d'une classe liée au live (table `live_session_classes`)
-
-### Permissions caméra/micro
-Headers HTTP dans `next.config.ts` :
-```
-Permissions-Policy: camera=(self "https://meet.jit.si"), microphone=..., display-capture=..., autoplay=...
-```
-Essentiel pour Safari et mobiles — sans ça, l'iframe Jitsi ne peut pas accéder à la caméra.
-
-### Recording
-Sur `meet.jit.si` public : le bouton "Recording" est disponible côté prof, mais l'enregistrement nécessite **Dropbox** (ou Google Drive). Jitsi ne stocke pas les vidéos lui-même.
-
-### Limites du free tier Jitsi
-- Pas de recording cloud natif (passage par Dropbox)
-- Performances dégradées au-delà de ~25 participants par room
-- Pour aller plus loin : self-host Jitsi avec Jibri pour recording local
+### Badge dynamique "Calendrier"
+Pour les étudiants/profs : nombre d'événements à venir (`start_at >= now`).
 
 ---
 
-## 11. Bibliothèques — logique d'accès
+## 11. Système de messagerie — Chat temps réel
 
-- Chaque fichier appartient à une **bibliothèque** qui est liée à une ou plusieurs **classes** via `library_classes`
-- Les étudiants ne voient que les fichiers des classes où ils sont inscrits (RLS automatique)
-- Les professeurs voient les fichiers de leurs classes assignées
-- L'admin voit tout
-- Les fichiers sont **consultables en ligne uniquement** :
-  - Vidéo : `controlsList="nodownload"`, `disablePictureInPicture`, clic droit désactivé
-  - Audio : lecteur HTML5 personnalisé
-  - PDF : iframe avec `#toolbar=0&navpanes=0`
-  - PPTX : Google Docs viewer
-- En production : URLs signées temporaires via Supabase Storage
-- ⏳ Le bouton "+ Ajouter un fichier" (admin) est désactivé — upload à brancher
+### Composant : `components/chat/chat-page.tsx` (partagé prof + étudiant)
+- Sidebar gauche : conversations (classes + DMs)
+- Zone droite : messages + input + bouton "+ Nouvelle conversation"
+- Mobile : bascule entre liste et conversation
 
----
+### Types de channels
+- **Class** : créé automatiquement par trigger à la création d'une classe
+- **Direct** : entre 2 users — création via `/api/chat/start-dm` qui valide qu'ils partagent au moins une classe
+- **General students** : prévu mais pas encore activé
 
-## 12. Génération des credentials
+### Realtime
+- 2 subscriptions Supabase Realtime :
+  - **Active channel** : pour afficher les nouveaux messages
+  - **Global** : pour incrémenter les badges unread des autres conversations
 
-Fonction `generateUsername(fullName, existingUsernames[])` dans `utils/credentials.ts` :
-- Format : `prenom.nom` (accents supprimés, minuscules)
-- Si doublon : `prenom.nom2`, `prenom.nom3`, etc.
-
-Fonction `generatePassword()` :
-- 14 caractères, garantit : majuscule + minuscule + chiffre + caractère spécial
-
----
-
-## 13. Responsive design
-
-- **Mobile (`< lg` / `< 1024px`)** : sidebar cachée, accessible via bouton hamburger (overlay)
-- **Desktop (`lg+`)** : sidebar fixe 260px, `main` avec `ml-[260px]`
-- Headers des pages : `px-4 py-4 sm:px-8 sm:py-5`
-- Contenu : `p-4 sm:p-6 lg:p-8`
-- Grilles : `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` selon le contexte
-- Calendrier : sidebar "Prochains événements" passe en bas sur mobile
+### Système unread
+- Colonne `last_read_at` sur `chat_channel_members`
+- Fonction SQL `unread_counts()` retourne par channel
+- Fonction SQL `unread_total()` retourne total
+- Badge sidebar **"Messagerie"** se met à jour : polling 15s + event `messages-changed`
+- Badge par conversation dans la liste
+- Mark-as-read automatique à l'ouverture d'un channel
 
 ---
 
-## 14. Ce qui reste à faire
+## 12. Système de bibliothèque
+
+### Upload (admin uniquement)
+- **Upload direct** Browser → Supabase Storage (bypass Vercel 4.5 MB limit)
+- Utilise `createSignedUploadUrl` + `XMLHttpRequest` avec **barre de progression**
+- Multi-classes : checkboxes avec "Tout sélectionner"
+- Crée une **bibliothèque par fichier** liée à toutes les classes sélectionnées
+- **Rollback automatique** si une étape échoue
+- 500 MB max, formats : PDF, MP4/MOV/WEBM, MP3/WAV/OGG, PPTX/PPT
+
+### Lecteurs intégrés (`components/library/reader-modal.tsx`)
+Tailles adaptatives :
+| Type | Taille |
+|------|--------|
+| Audio | `max-w-md` — compact |
+| Vidéo | `max-w-3xl max-h-[80vh]` |
+| PDF | quasi plein écran |
+| PPTX | quasi plein écran |
+
+### PDF Reader custom (`pdf-reader.tsx` via react-pdf)
+- **Navigation par page** : prev/next + input direct
+- **Zoom** : -/+ (0.5x à 3x par pas de 0.25)
+- **Auto-largeur** + reset 100%
+- **Clavier** : ←/→ pour pages, +/- pour zoom
+- **PDF.js worker** servi depuis `/public/pdf.worker.min.mjs` (copié au `postinstall`)
+- Chargé dynamiquement (`ssr: false`) pour éviter erreurs SSR
+
+### Vidéo — Contrôles de vitesse
+- Overlay en haut à droite (toujours visible)
+- Boutons rapides **1x · 1.5x · 2x**
+- Menu **"⋯"** : 0.5x · 0.75x · 1x · 1.25x · 1.5x · 1.75x · 2x
+
+### Protection anti-download
+- Bucket **privé** `library-files`
+- URLs signées temporaires (1h) via `/api/library/signed-url`
+- `controlsList="nodownload"`, `disablePictureInPicture`, `contextmenu` désactivé
+- PDF avec annotations désactivées
+- Bandeau "consultation en ligne uniquement"
+
+---
+
+## 13. CitsaOccultBlog — Feed social
+
+### Composant : `components/blog/`
+- **PostComposer** : textarea + upload photo/vidéo (100 MB max, JPG/PNG/WEBP/GIF/MP4/WEBM)
+- **PostCard** : header (avatar + rôle), média EN HAUT (style Instagram), texte en bas, actions
+- **CommentsSection** : commentaires avec avatars
+- Repartage avec commentaire optionnel (post original imbriqué)
+- Like avec optimistic UI
+
+### Logique
+- Tout le monde lit
+- Tout le monde peut poster/liker/commenter/repartager
+- Admin peut supprimer pour modération
+
+### Storage
+- Bucket public `blog-media`
+- Chemin : `{user_id}/{uuid}.{ext}`
+
+### Pages
+- `/admin/communaute`, `/professeur/communaute`, `/etudiant/communaute` (composant partagé)
+- Feed paginé par 10 + bouton "Voir plus"
+
+---
+
+## 14. Profils — Sections classes
+
+### Composant partagé : `components/profile-page.tsx`
+- Upload avatar (bucket `avatars`, 3 MB max)
+- Édition nom complet
+- **Section "Classes" adaptative** :
+  - Étudiant : "Mes classes" (classes où inscrit)
+  - Professeur : "Classes enseignées" (classes assignées)
+  - Admin : section non affichée
+- Synchronisation sidebar : `CustomEvent("profile-updated")` met à jour avatar + nom instantanément
+
+---
+
+## 15. Page d'accueil — Hero
+
+- Section Hero avec **image `/public/image-maitre.png` en fond** (cover + center)
+- Overlay sombre 55% pour lisibilité
+- Vignette rouge radiale + dégradé vers noir en bas
+- Pattern losanges subtil (opacité 4%)
+- Formulaire d'admission complet dessous
+
+---
+
+## 16. Ce qui reste à faire
 
 ### Priorité haute (fonctionnalités métier)
-- [ ] **Chat temps réel** — brancher `chat_messages` sur Supabase Realtime + UI complète
 - [ ] **Exercices** — UI complète : création par prof (QCM/quiz/PDF), passage par étudiant, correction auto, notation manuelle
-- [ ] **Upload fichiers bibliothèque** — UI admin pour uploader vers bucket `library-files` + assignation classes
-- [ ] **Page mot de passe oublié** — `/mot-de-passe-oublie` (reset par l'admin, vu que les emails sont fictifs)
 - [ ] **Notifications** — UI dans la sidebar (badge dynamique) + page dédiée
+- [ ] **Page mot de passe oublié** — `/mot-de-passe-oublie` (reset par admin)
 
 ### Priorité moyenne
-- [ ] **Bouton "Réinitialiser mot de passe"** dans le modal admin étudiant/prof (route API existe déjà)
-- [ ] **Bouton "Supprimer compte"** dans le modal admin (route API existe déjà)
-- [ ] **Broadcast** — brancher l'UI sur `live_sessions` avec `session_type='broadcast'`
+- [ ] **Bouton "Réinitialiser mot de passe"** dans le modal admin étudiant/prof (route API existe)
+- [ ] **Bouton "Supprimer compte"** dans le modal admin (route API existe)
 - [ ] **Email transactionnel** quand l'admin approuve une admission
+- [ ] **Édition des classes assignées** sur un fichier de bibliothèque existant
 - [ ] **Recording natif** des lives Jitsi (nécessite self-host Jitsi + Jibri)
 
 ### Priorité basse / améliorations
@@ -456,7 +516,7 @@ Fonction `generatePassword()` :
 
 ---
 
-## 15. Variables d'environnement (`.env.local`)
+## 17. Variables d'environnement (`.env.local`)
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://qaudfykhzhpthwhynewz.supabase.co
@@ -468,107 +528,98 @@ SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 NEXT_PUBLIC_JITSI_DOMAIN=meet.jit.si
 ```
 
-⚠️ Le `SUPABASE_SERVICE_ROLE_KEY` est utilisé par les routes API `/admin/create-user` et `/admin/approve-admission` pour bypasser RLS. Ne jamais l'exposer côté client.
-
-`NEXT_PUBLIC_JITSI_DOMAIN` par défaut sur `meet.jit.si` (instance publique gratuite). Pour une instance self-hosted, change cette valeur.
+⚠️ Le `SUPABASE_SERVICE_ROLE_KEY` est utilisé par les routes API admin pour bypasser RLS. Ne jamais l'exposer côté client.
 
 ---
 
-## 16. Commandes utiles
+## 18. Commandes utiles
 
 ```bash
-# Lancer le serveur de développement
-npm run dev        # → http://localhost:3000
-
-# Build de production
+# Dev / Build
+npm run dev                       # → http://localhost:3000
 npm run build
+npm run copy-pdf-worker           # Re-copie le worker PDF dans /public
 
-# Git — pousser les modifications
-git add .
-git commit -m "description"
-git push
+# Git
+git add . && git commit -m "..." && git push
+git tag -a v0.X.Y -m "..." && git push origin v0.X.Y
 
-# Tag de version
-git tag -a v0.X.0 -m "description"
-git push origin v0.X.0
-
-# Réparer permissions npm (si "EACCES" dans node_modules)
+# Permissions npm (si EACCES)
 sudo chown -R $(whoami):staff /Users/mac/Documents/cita_school
 
-# Re-ajouter Supabase MCP (token expire — régénérer sur supabase.com/dashboard/account/tokens)
+# MCP Supabase
 claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp-server-supabase@latest
 ```
 
 ---
 
-## 17. Convention de code
+## 19. Convention de code
 
-- **Composants UI** : CVA (class-variance-authority) pour les variants
-- **Client components** : `"use client"` en haut du fichier quand `useState`, `useEffect`, event handlers
-- **Server components** : par défaut (pas de directive)
+- **Composants UI** : CVA pour les variants
+- **Client components** : `"use client"` quand `useState`, `useEffect`, event handlers, hooks
+- **Server components** : par défaut
 - **Modals** : pattern slide-in depuis la droite (`fixed right-0 top-0 h-full max-w-[480px]`) avec backdrop blur
 - **Pas de commentaires** sauf si le WHY est non-évident
 - **Pas de téléchargement** sur les fichiers de bibliothèque
-- **Erreurs** : extraire via une fonction qui sait lire les erreurs Supabase (qui ne sont pas des `Error` JS standards) — voir `extractError` dans `profile-page.tsx`
-- **RLS** : éviter les sous-requêtes auto-référencées dans les policies → utiliser des fonctions `security definer` à la place (récursion infinie sinon)
+- **Erreurs Supabase** : utiliser une fonction qui sait lire les objets non-`Error` (voir `extractError`)
+- **RLS** : éviter les sous-requêtes auto-référencées → utiliser des fonctions `security definer`
+- **Storage paths** : toujours préfixer par `{user_id}/` pour les buckets avec policies par dossier
+- **Upload de gros fichiers** : utiliser `createSignedUploadUrl` côté client pour bypass Vercel
+- **Realtime** : utiliser des `CustomEvent` (`profile-updated`, `messages-changed`, `lives-changed`, `calendar-events-changed`) pour rafraîchir les badges instantanément
 
 ---
 
-## 18. Historique des versions
+## 20. Historique des versions
 
-### v0.3.1 — Live courses Safari/mobile compatibility *(actuelle)*
+### v0.7.1 — Direct upload + video playback speeds *(actuelle)*
+- Fix erreur 413 : upload direct Supabase Storage via `createSignedUploadUrl` (bypass Vercel)
+- Contrôles de vitesse vidéo (1x, 1.5x, 2x + menu 0.5x→2x) en overlay
+- PDF.js worker servi en local depuis `/public` (CDN cdnjs n'avait pas la version)
+- Script `postinstall` qui copie le worker à chaque `npm install`
+- Image-maître en fond du Hero
 
-**Corrections**
-- ✅ Ajout des headers `Permissions-Policy` dans `next.config.ts` pour permettre à l'iframe Jitsi d'accéder à la caméra/micro
-- ✅ Attribut `sandbox` explicite sur l'iframe Jitsi (essentiel pour Safari et iOS)
-- ✅ Détection précoce de `RTCPeerConnection` indisponible
-- ✅ Listeners d'erreurs supplémentaires (cameraError, connectionFailed, passwordRequired)
-- ✅ Désactivation explicite du lobby Jitsi pour éviter le blocage des étudiants
-- ✅ Retrait du panneau debug temporaire
+### v0.7.0 — Library refinements with custom PDF viewer
+- Upload multi-classes (checkboxes au lieu de select)
+- Tailles de lecteurs adaptatives (audio compact, vidéo moyen, PDF/PPTX plein écran)
+- **Custom PDF viewer** avec react-pdf : navigation, zoom, fit-width, raccourcis clavier
+- Dynamic import (`ssr: false`) pour éviter les erreurs SSR
+
+### v0.6.0 — Real library with upload and protected readers
+- Upload admin opérationnel
+- ReaderModal partagé (PDF/Audio/Vidéo/PPTX) avec protections anti-download
+- Signed URLs 1h via `/api/library/signed-url`
+- Suppression de fichiers
+
+### v0.5.0 — CitsaOccultBlog (feed social)
+- Tables `blog_posts`, `blog_likes`, `blog_comments`
+- Bucket `blog-media` (100 MB max)
+- PostComposer + PostCard + CommentsSection + repost
+- Pages `/communaute` dans chaque espace
+- Realtime activé
+
+### v0.4.0 — Broadcast, real-time chat, unread badges
+- **Broadcast admin** visible par tous les authentifiés (`session_type='broadcast'`)
+- Chat privé temps réel (Supabase Realtime) avec channels de classe + DMs
+- DMs validés : les 2 users doivent partager au moins une classe
+- Badges unread sur sidebar (total) et par conversation
+- Section "Classes" dans les profils étudiant/professeur
+- Calendrier compact + badge dynamique
+
+### v0.3.1 — Live courses Safari/mobile compatibility
+- Headers `Permissions-Policy` pour iframe Jitsi
+- Attribut `sandbox` explicite
+- Détection précoce de WebRTC indisponible
+- Désactivation explicite du lobby Jitsi
 
 ### v0.3.0 — Live courses with Jitsi, profile pages, calendar badge
-
-**Nouvelles fonctionnalités**
-- ✅ Système de cours live complet via **Jitsi Meet** (gratuit, sans carte bancaire)
-- ✅ Routes API : `/api/professor/start-live`, `/api/professor/end-live`, `/api/live/access`
-- ✅ Composant `LiveRoom` partagé avec UI prebuilt Jitsi (vidéo/audio/chat/screen share/recording via Dropbox)
-- ✅ Page prof : modal pour lancer un live, choix de classe assignée
-- ✅ Page étudiant : liste des lives actifs de ses classes, auto-refresh 20s
-- ✅ Modérateur (prof/admin) a une toolbar complète, étudiant a une toolbar restreinte
-- ✅ Détection robuste du script Jitsi (polling de secours pour re-mount)
-- ✅ Badge dynamique sur "Calendrier" pour étudiants/profs (compteur événements à venir)
+- Système de cours live via Jitsi Meet (gratuit)
+- LiveRoom partagé prof/étudiant
+- Badge dynamique sur "Calendrier"
 
 ### v0.2.0 — Calendar, profile, admission flow, space cleanup
-
-**Nouvelles fonctionnalités**
-- ✅ Système de calendrier complet (admin/prof/étudiant) avec table `calendar_events` + RLS
-- ✅ Pages profil partagées avec upload avatar (bucket `avatars` + policies)
-- ✅ Approbation d'admission → création auto du compte étudiant + credentials retournés
-- ✅ Routes API : `/api/admin/approve-admission` (création + maj statut)
-
-**Nettoyage**
-- ✅ Retrait de tous les badges hardcodés (sidebars étudiant/prof)
-- ✅ Tableau de bord étudiant : vraies classes au lieu de mocks
-- ✅ Pages messagerie/exercices/live (prof + étudiant) : états vides
-- ✅ Mes Classes professeur : charge vraiment depuis Supabase
-
-**Corrections**
-- ✅ Déconnexion fonctionnelle (`supabase.auth.signOut()` + redirection)
-- ✅ Récursion infinie RLS sur `profiles_update_own` → simplifiée + trigger pour protéger le rôle
-- ✅ Sidebar dynamique : avatar et nom chargés depuis Supabase + mise à jour temps réel via `CustomEvent`
+- Calendrier complet
+- Pages profil partagées avec upload avatar
+- Approbation d'admission → création auto du compte étudiant
 
 ### v0.1.0 — Premier scaffold
-
-**Sessions cumulées**
-| Date | Travaux effectués |
-|------|------------------|
-| Session 1 | Analyse des fichiers HTML/CSS source · Création du scaffold complet Next.js |
-| Session 2 | Page bibliothèques admin redesignée · Modal édition étudiants/professeurs |
-| Session 3 | Filtre bibliothèques par classe · Page classes avec modal création · Contexte partagé |
-| Session 4 | Modal création compte étudiant (génération username+password en 2 étapes) |
-| Session 5 | Bibliothèque étudiant : lecteurs intégrés (video/audio/PDF/PPTX), non téléchargeable |
-| Session 6 | Responsive complet (sidebar hamburger mobile, padding adaptatif, grilles responsive) |
-| Session 7 | Menu + page bibliothèques professeur · Premier push GitHub |
-| Session 8 | Configuration Supabase + 14 migrations SQL · Schéma + triggers + RLS · Compte admin initial |
-| Session 9 | Connexion à Supabase des pages admin (overview, classes, étudiants, professeurs, bibliothèques, admissions) · Middleware réactivé |
-| Session 10 | Formulaire admission complet (email, nombre d'enfants, photo identité) · Modal détails admin · Push v0.1.0 |
+- Sessions 1-10 : analyse HTML/CSS, scaffold Next.js, connexion Supabase, formulaire admission complet, etc.
