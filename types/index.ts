@@ -47,6 +47,7 @@ export interface LiveSession {
   session_type: "class_live" | "broadcast";
   status: "scheduled" | "live" | "ended";
   recording_url: string | null;
+  recording_file_id: string | null;
   started_at: string | null;
   ended_at: string | null;
   created_at: string;

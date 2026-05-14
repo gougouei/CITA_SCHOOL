@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
 import { LiveRoom } from "@/components/live/live-room";
+import { ReaderModal } from "@/components/library/reader-modal";
 
 interface ActiveLive {
   id:           string;
@@ -15,12 +16,23 @@ interface ActiveLive {
   is_broadcast: boolean;
 }
 
+interface RecordedLive {
+  id:         string;
+  title:      string;
+  ended_at:   string | null;
+  host_name:  string;
+  class_name: string;
+  recording:  { id: string; name: string; size: number };
+}
+
 export default function EtudiantLivePage() {
   const supabase = createClient();
-  const [lives,   setLives]   = useState<ActiveLive[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
-  const [inRoom,  setInRoom]  = useState<string | null>(null);
+  const [lives,     setLives]     = useState<ActiveLive[]>([]);
+  const [recorded,  setRecorded]  = useState<RecordedLive[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState<string | null>(null);
+  const [inRoom,    setInRoom]    = useState<string | null>(null);
+  const [replay,    setReplay]    = useState<RecordedLive | null>(null);
 
   async function loadLives() {
     setLoading(true);
@@ -106,6 +118,59 @@ export default function EtudiantLivePage() {
       ];
 
       setLives(result);
+
+      // ─── E. Cours enregistrés (lives terminés avec recording) ───────────────
+      const { data: endedSessions } = await supabase
+        .from("live_sessions")
+        .select("id, title, ended_at, host_id, recording_file_id")
+        .eq("session_type",     "class_live")
+        .eq("status",           "ended")
+        .not("recording_file_id", "is", null)
+        .order("ended_at", { ascending: false })
+        .limit(50);
+
+      const endedList = endedSessions ?? [];
+      const recFileIds = endedList.map((e) => e.recording_file_id).filter((x): x is string => !!x);
+      const endedHostIds = Array.from(new Set(endedList.map((e) => e.host_id)));
+
+      const [recFilesRes, endedLinksRes, endedHostsRes] = await Promise.all([
+        recFileIds.length > 0
+          ? supabase.from("library_files").select("id, file_name, file_size").in("id", recFileIds)
+          : Promise.resolve({ data: [] as { id: string; file_name: string; file_size: number | null }[] }),
+        endedList.length > 0
+          ? supabase.from("live_session_classes").select("live_session_id, class_id, classes(name)").in("live_session_id", endedList.map((e) => e.id))
+          : Promise.resolve({ data: [] as { live_session_id: string; class_id: string; classes: { name: string } | { name: string }[] | null }[] }),
+        endedHostIds.length > 0
+          ? supabase.from("profiles").select("id, full_name").in("id", endedHostIds)
+          : Promise.resolve({ data: [] as { id: string; full_name: string }[] }),
+      ]);
+
+      const recFiles    = recFilesRes.data ?? [];
+      const endedLinks  = endedLinksRes.data ?? [];
+      const endedHosts  = endedHostsRes.data ?? [];
+
+      function endedHostName(id: string) {
+        return endedHosts.find((h) => h.id === id)?.full_name ?? "Animateur";
+      }
+
+      const recordedResult: RecordedLive[] = endedList.flatMap((s) => {
+        const rec  = recFiles.find((f) => f.id === s.recording_file_id);
+        if (!rec) return [];
+        const link = endedLinks.find((l) => l.live_session_id === s.id);
+        const cls  = link?.classes
+          ? (Array.isArray(link.classes) ? link.classes[0] : link.classes)
+          : null;
+        return [{
+          id:         s.id,
+          title:      s.title,
+          ended_at:   s.ended_at,
+          host_name:  endedHostName(s.host_id),
+          class_name: cls?.name ?? "",
+          recording:  { id: rec.id, name: rec.file_name, size: rec.file_size ?? 0 },
+        }];
+      });
+
+      setRecorded(recordedResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
@@ -145,7 +210,7 @@ export default function EtudiantLivePage() {
 
         {loading ? (
           <div className="text-center py-20 text-muted-fg text-sm">Chargement…</div>
-        ) : lives.length === 0 ? (
+        ) : lives.length === 0 && recorded.length === 0 ? (
           <Card>
             <div className="px-6 py-16 sm:py-20 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted-bg flex items-center justify-center">
@@ -160,7 +225,7 @@ export default function EtudiantLivePage() {
               </p>
             </div>
           </Card>
-        ) : (
+        ) : lives.length === 0 ? null : (
           <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
             {lives.map((live) => (
               <Card key={live.id}>
@@ -199,7 +264,71 @@ export default function EtudiantLivePage() {
             ))}
           </div>
         )}
+
+        {/* Cours enregistrés (replays) */}
+        {!loading && recorded.length > 0 && (
+          <div className="mt-8 sm:mt-10">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-[hsl(160,60%,32%)]" />
+              <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
+                Cours enregistrés
+              </h2>
+              <span className="text-[0.7rem] text-muted-fg">
+                — {recorded.length} replay{recorded.length > 1 ? "s" : ""}
+              </span>
+            </div>
+            <p className="text-[0.78rem] text-muted-fg mb-4 max-w-[640px]">
+              Revoyez à votre rythme les cours qui ont déjà eu lieu et que vos professeurs ont enregistrés.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:gap-5 md:grid-cols-2">
+              {recorded.map((r) => (
+                <Card key={r.id}>
+                  <div className="p-5 sm:p-6 flex flex-col gap-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-[hsl(160,60%,32%)] bg-[hsla(160,60%,45%,0.1)] px-2.5 py-1 rounded-full">
+                        📹 Enregistré
+                      </span>
+                      {r.class_name && (
+                        <span className="text-[0.7rem] text-muted-fg bg-secondary px-2 py-1 rounded-full">
+                          {r.class_name}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="font-serif text-lg font-semibold text-[#141414] mb-1">
+                        {r.title}
+                      </h2>
+                      <p className="text-sm text-muted-fg">{r.host_name}</p>
+                      {r.ended_at && (
+                        <p className="text-[0.72rem] text-muted-fg mt-1">
+                          Diffusé le {new Date(r.ended_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="accent" className="w-full" onClick={() => setReplay(r)}>
+                      Voir l&apos;enregistrement
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {replay && (
+        <ReaderModal
+          file={{
+            id:      replay.recording.id,
+            name:    replay.recording.name,
+            type:    "video",
+            size:    replay.recording.size,
+            addedAt: replay.ended_at ?? new Date().toISOString(),
+          }}
+          onClose={() => setReplay(null)}
+        />
+      )}
     </>
   );
 }

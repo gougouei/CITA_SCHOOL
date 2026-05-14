@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
 import { LiveRoom } from "@/components/live/live-room";
+import { AttachRecordingModal } from "@/components/live/attach-recording-modal";
+import { ReaderModal } from "@/components/library/reader-modal";
 
 interface ClassOption { id: string; name: string }
 interface LiveSession {
@@ -21,15 +23,28 @@ interface ActiveBroadcast {
   host_name:  string;
 }
 
+interface EndedLive {
+  id:                string;
+  title:             string;
+  ended_at:          string | null;
+  recording_file_id: string | null;
+  classIds:          string[];
+  // Si une vidéo est attachée :
+  recording?: { id: string; name: string; size: number } | null;
+}
+
 export default function ProfesseurLivePage() {
   const supabase = createClient();
-  const [classes,    setClasses]    = useState<ClassOption[]>([]);
-  const [activeLive, setActiveLive] = useState<LiveSession | null>(null);
-  const [broadcasts, setBroadcasts] = useState<ActiveBroadcast[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
-  const [showModal,  setShowModal]  = useState(false);
-  const [inRoom,     setInRoom]     = useState<string | null>(null);
+  const [classes,     setClasses]     = useState<ClassOption[]>([]);
+  const [activeLive,  setActiveLive]  = useState<LiveSession | null>(null);
+  const [broadcasts,  setBroadcasts]  = useState<ActiveBroadcast[]>([]);
+  const [endedLives,  setEndedLives]  = useState<EndedLive[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [showModal,   setShowModal]   = useState(false);
+  const [inRoom,      setInRoom]      = useState<string | null>(null);
+  const [attachLive,  setAttachLive]  = useState<EndedLive | null>(null);
+  const [replayLive,  setReplayLive]  = useState<EndedLive | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -38,7 +53,7 @@ export default function ProfesseurLivePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [myClassesRes, activeRes, bcRes] = await Promise.all([
+      const [myClassesRes, activeRes, bcRes, endedRes] = await Promise.all([
         supabase
           .from("class_members")
           .select("class_id, classes (id, name)")
@@ -58,6 +73,14 @@ export default function ProfesseurLivePage() {
           .eq("session_type", "broadcast")
           .eq("status",       "live")
           .order("started_at", { ascending: false }),
+        supabase
+          .from("live_sessions")
+          .select("id, title, ended_at, recording_file_id")
+          .eq("host_id",      user.id)
+          .eq("session_type", "class_live")
+          .eq("status",       "ended")
+          .order("ended_at",  { ascending: false })
+          .limit(30),
       ]);
 
       const classOpts: ClassOption[] = (myClassesRes.data ?? [])
@@ -83,6 +106,35 @@ export default function ProfesseurLivePage() {
         started_at: b.started_at,
         host_name:  (hosts ?? []).find((h) => h.id === b.host_id)?.full_name ?? "Administration",
       })));
+
+      // ─── Lives terminés : récupérer leurs classes et leurs fichiers de recording
+      const endedList = endedRes.data ?? [];
+      const endedIds  = endedList.map((l) => l.id);
+      const recIds    = endedList.map((l) => l.recording_file_id).filter((x): x is string => !!x);
+
+      const [endedLinksRes, recFilesRes] = await Promise.all([
+        endedIds.length > 0
+          ? supabase.from("live_session_classes").select("live_session_id, class_id").in("live_session_id", endedIds)
+          : Promise.resolve({ data: [] as { live_session_id: string; class_id: string }[] }),
+        recIds.length > 0
+          ? supabase.from("library_files").select("id, file_name, file_size").in("id", recIds)
+          : Promise.resolve({ data: [] as { id: string; file_name: string; file_size: number | null }[] }),
+      ]);
+
+      const endedLinks = endedLinksRes.data ?? [];
+      const recFiles   = recFilesRes.data ?? [];
+
+      setEndedLives(endedList.map((l) => {
+        const rec = recFiles.find((f) => f.id === l.recording_file_id);
+        return {
+          id:                l.id,
+          title:             l.title,
+          ended_at:          l.ended_at,
+          recording_file_id: l.recording_file_id,
+          classIds:          endedLinks.filter((lk) => lk.live_session_id === l.id).map((lk) => lk.class_id),
+          recording: rec ? { id: rec.id, name: rec.file_name, size: rec.file_size ?? 0 } : null,
+        };
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur de chargement");
     } finally {
@@ -227,6 +279,85 @@ export default function ProfesseurLivePage() {
           </Card>
         )}
 
+        {/* Section : mes cours terminés (avec ou sans enregistrement) */}
+        {!loading && endedLives.length > 0 && (
+          <div className="mt-6 sm:mt-8">
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
+                Mes cours terminés
+              </h2>
+              <span className="text-[0.7rem] text-muted-fg">
+                — {endedLives.length} cours
+              </span>
+            </div>
+            <p className="text-[0.78rem] text-muted-fg mb-4 max-w-[640px]">
+              Vous pouvez joindre une vidéo (enregistrée pendant le cours via OBS, QuickTime, ou le bouton « Enregistrer » de Jitsi)
+              pour que vos étudiants puissent revoir le cours.
+            </p>
+
+            <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2">
+              {endedLives.map((l) => {
+                const hasRec = !!l.recording;
+                return (
+                  <Card key={l.id}>
+                    <div className="p-5 flex flex-col gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[0.7rem] font-bold uppercase tracking-wider text-muted-fg bg-muted-bg px-2.5 py-1 rounded-full">
+                          Terminé
+                        </span>
+                        {hasRec ? (
+                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-[hsl(160,60%,32%)] bg-[hsla(160,60%,45%,0.1)] px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(160,60%,32%)]" />
+                            Enregistré
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-bold uppercase tracking-wider text-[hsl(35,90%,35%)] bg-[hsla(35,90%,50%,0.1)] px-2.5 py-1 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[hsl(35,90%,35%)]" />
+                            À enregistrer
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-base font-semibold text-[#141414] mb-0.5">
+                          {l.title}
+                        </h3>
+                        {l.ended_at && (
+                          <p className="text-[0.72rem] text-muted-fg">
+                            Terminé le {new Date(l.ended_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                            {" à "}
+                            {new Date(l.ended_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        )}
+                        {hasRec && l.recording && (
+                          <p className="text-[0.7rem] text-muted-fg mt-1 truncate">
+                            📹 {l.recording.name} · {(l.recording.size / (1024 * 1024)).toFixed(1)} MB
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        {hasRec ? (
+                          <>
+                            <Button variant="accent" size="sm" className="flex-1" onClick={() => setReplayLive(l)}>
+                              Voir l&apos;enregistrement
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setAttachLive(l)}>
+                              Remplacer
+                            </Button>
+                          </>
+                        ) : (
+                          <Button variant="accent" size="sm" className="w-full" onClick={() => setAttachLive(l)}>
+                            Joindre un enregistrement
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Section broadcasts admin */}
         {broadcasts.length > 0 && (
           <div className="mt-6 sm:mt-8">
@@ -278,6 +409,29 @@ export default function ProfesseurLivePage() {
           classes={classes}
           onClose={() => setShowModal(false)}
           onStart={startLive}
+        />
+      )}
+
+      {attachLive && (
+        <AttachRecordingModal
+          sessionId={attachLive.id}
+          sessionTitle={attachLive.title}
+          liveClassIds={attachLive.classIds}
+          onClose={() => setAttachLive(null)}
+          onAttached={() => loadData()}
+        />
+      )}
+
+      {replayLive && replayLive.recording && (
+        <ReaderModal
+          file={{
+            id:      replayLive.recording.id,
+            name:    replayLive.recording.name,
+            type:    "video",
+            size:    replayLive.recording.size,
+            addedAt: replayLive.ended_at ?? new Date().toISOString(),
+          }}
+          onClose={() => setReplayLive(null)}
         />
       )}
     </>
