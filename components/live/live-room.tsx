@@ -9,6 +9,7 @@ interface LiveRoomProps {
   onLeave:   () => void;
   isHost?:   boolean;
   onEnd?:    () => Promise<void> | void;
+  onRecordingReady?: (file: File) => void;
 }
 
 interface AccessData {
@@ -32,16 +33,148 @@ declare global {
 
 const JITSI_DOMAIN = process.env.NEXT_PUBLIC_JITSI_DOMAIN ?? "meet.jit.si";
 
-export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
+export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }: LiveRoomProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef       = useRef<JitsiMeetExternalAPI | null>(null);
+
+  // ─── Enregistrement local (MediaRecorder API) ─────────────────────────────
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef   = useRef<Blob[]>([]);
+  const streamsRef  = useRef<{ display: MediaStream | null; mic: MediaStream | null; audioCtx: AudioContext | null }>({
+    display: null, mic: null, audioCtx: null,
+  });
+  const [isRecording, setIsRecording] = useState(false);
+  const [recElapsed,  setRecElapsed]  = useState(0);
+  const [recError,    setRecError]    = useState<string | null>(null);
 
   const [scriptLoaded, setScriptLoaded] = useState(() =>
     typeof window !== "undefined" && typeof window.JitsiMeetExternalAPI === "function"
   );
-  const [access,  setAccess]  = useState<AccessData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error,   setError]   = useState<string | null>(null);
+  const [access,        setAccess]        = useState<AccessData | null>(null);
+  const [loading,       setLoading]       = useState(true);
+  const [error,         setError]         = useState<string | null>(null);
+
+  // Compteur de durée d'enregistrement
+  useEffect(() => {
+    if (!isRecording) { setRecElapsed(0); return; }
+    const id = setInterval(() => setRecElapsed((e) => e + 1), 1000);
+    return () => clearInterval(id);
+  }, [isRecording]);
+
+  function formatElapsed(seconds: number) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  }
+
+  async function startRecording() {
+    setRecError(null);
+    try {
+      // 1. Capture écran (avec audio système si l'utilisateur l'active)
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: { ideal: 30 } },
+        audio: true,
+      });
+      streamsRef.current.display = displayStream;
+
+      // 2. Capture micro (optionnel — si refusé, on continue sans)
+      let micStream: MediaStream | null = null;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamsRef.current.mic = micStream;
+      } catch {
+        // micro refusé → on poursuit avec uniquement l'audio système
+      }
+
+      // 3. Combine pistes audio (système + micro) si possible
+      let finalStream = displayStream;
+      const hasSystemAudio = displayStream.getAudioTracks().length > 0;
+
+      if (micStream && (hasSystemAudio || true)) {
+        const audioCtx = new AudioContext();
+        const destination = audioCtx.createMediaStreamDestination();
+
+        if (hasSystemAudio) {
+          audioCtx.createMediaStreamSource(displayStream).connect(destination);
+        }
+        audioCtx.createMediaStreamSource(micStream).connect(destination);
+
+        streamsRef.current.audioCtx = audioCtx;
+        finalStream = new MediaStream([
+          displayStream.getVideoTracks()[0],
+          destination.stream.getAudioTracks()[0],
+        ]);
+      }
+
+      // 4. Choix du format (MP4 si supporté, sinon WebM)
+      const mimeCandidates = [
+        "video/mp4;codecs=h264,aac",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
+        "video/webm",
+      ];
+      const mimeType = mimeCandidates.find((m) => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+
+      const recorder = new MediaRecorder(finalStream, {
+        mimeType,
+        videoBitsPerSecond: 2_500_000,
+      });
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const ext  = mimeType.includes("mp4") ? "mp4" : "webm";
+        const ts   = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        const file = new File([blob], `enregistrement-${ts}.${ext}`, { type: mimeType });
+
+        // Cleanup : arrêter toutes les pistes
+        streamsRef.current.display?.getTracks().forEach((t) => t.stop());
+        streamsRef.current.mic?.getTracks().forEach((t) => t.stop());
+        streamsRef.current.audioCtx?.close().catch(() => { /* ignore */ });
+        streamsRef.current = { display: null, mic: null, audioCtx: null };
+
+        setIsRecording(false);
+        chunksRef.current = [];
+        onRecordingReady?.(file);
+      };
+
+      // L'utilisateur arrête le partage d'écran depuis le navigateur → on stoppe aussi
+      displayStream.getVideoTracks()[0].onended = () => {
+        if (recorder.state === "recording") recorder.stop();
+      };
+
+      recorder.start(1000);
+      recorderRef.current = recorder;
+      setIsRecording(true);
+    } catch (e) {
+      // L'utilisateur annule le picker → silencieux
+      if (e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "AbortError")) {
+        return;
+      }
+      setRecError(e instanceof Error ? e.message : "Erreur d'enregistrement");
+    }
+  }
+
+  function stopRecording() {
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.stop();
+    }
+  }
+
+  // Cleanup au démontage
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current?.state === "recording") {
+        try { recorderRef.current.stop(); } catch { /* ignore */ }
+      }
+      streamsRef.current.display?.getTracks().forEach((t) => t.stop());
+      streamsRef.current.mic?.getTracks().forEach((t) => t.stop());
+      streamsRef.current.audioCtx?.close().catch(() => { /* ignore */ });
+    };
+  }, []);
 
   // ─── 1. Vérifier l'accès dès le mount ──────────────────────────────────────
   useEffect(() => {
@@ -122,7 +255,7 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
           ? [
               "microphone", "camera", "desktop", "chat", "raisehand",
               "participants-pane", "tileview", "select-background",
-              "recording", "mute-everyone",
+              "mute-everyone",
               "settings", "videoquality", "fullscreen", "stats",
               "hangup",
             ]
@@ -206,6 +339,35 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Bouton enregistrement local — visible uniquement pour le prof/admin */}
+            {isHost && !error && !loading && (
+              isRecording ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-[0.7rem] font-mono bg-black/70 px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-[hsl(0,84%,55%)]">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[hsl(0,84%,65%)] animate-pulse" />
+                    REC {formatElapsed(recElapsed)}
+                  </span>
+                  <button
+                    onClick={stopRecording}
+                    className="h-9 px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all"
+                    title="Arrêter l'enregistrement"
+                  >
+                    <span className="w-3 h-3 bg-white rounded-[2px]" />
+                    Arrêter
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startRecording}
+                  className="h-9 px-3 rounded-md bg-[hsl(0,84%,55%)] hover:bg-[hsl(0,84%,50%)] flex items-center gap-2 text-white text-xs font-semibold transition-all hover:scale-[1.03]"
+                  title="Démarrer l'enregistrement local"
+                >
+                  <span className="w-3 h-3 rounded-full bg-white" />
+                  Enregistrer
+                </button>
+              )
+            )}
+
             {isHost && !error && (
               <Button variant="destructive" size="sm" onClick={handleEndLive}>
                 Terminer le live
@@ -229,6 +391,22 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd }: LiveRoomProps) {
           {loading && !error && (
             <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm pointer-events-none">
               Connexion à la salle…
+            </div>
+          )}
+
+          {/* Erreur enregistrement */}
+          {isHost && recError && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 max-w-[92%] sm:max-w-[480px] bg-[hsla(0,84%,60%,0.95)] border border-[hsla(0,84%,70%,0.5)] rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-elevated">
+              <p className="text-white text-[0.8rem] font-medium flex-1">{recError}</p>
+              <button
+                onClick={() => setRecError(null)}
+                className="text-white/80 hover:text-white w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 flex-shrink-0"
+                aria-label="Fermer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+              </button>
             </div>
           )}
 

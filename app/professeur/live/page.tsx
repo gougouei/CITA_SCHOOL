@@ -45,6 +45,12 @@ export default function ProfesseurLivePage() {
   const [inRoom,      setInRoom]      = useState<string | null>(null);
   const [attachLive,  setAttachLive]  = useState<EndedLive | null>(null);
   const [replayLive,  setReplayLive]  = useState<EndedLive | null>(null);
+  const [pendingRec,  setPendingRec]  = useState<{
+    file:      File;
+    sessionId: string;
+    title:     string;
+    classIds:  string[];
+  } | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -179,16 +185,47 @@ export default function ProfesseurLivePage() {
     window.dispatchEvent(new CustomEvent("lives-changed"));
   }
 
+  async function handleRecordingReady(file: File) {
+    if (!inRoom) return;
+    // Récupérer le titre et les classes liées au live au moment de l'enregistrement
+    const title = activeLive?.id === inRoom
+      ? activeLive.title
+      : "Enregistrement de cours";
+    const { data: links } = await supabase
+      .from("live_session_classes")
+      .select("class_id")
+      .eq("live_session_id", inRoom);
+    setPendingRec({
+      file,
+      sessionId: inRoom,
+      title,
+      classIds: (links ?? []).map((l) => l.class_id),
+    });
+  }
+
   // Si on est dans une room : isHost uniquement si c'est SON propre live
   if (inRoom) {
     const isOwnLive = activeLive && inRoom === activeLive.id;
     return (
-      <LiveRoom
-        sessionId={inRoom}
-        isHost={!!isOwnLive}
-        onEnd={isOwnLive ? endLive : undefined}
-        onLeave={() => { setInRoom(null); loadData(); }}
-      />
+      <>
+        <LiveRoom
+          sessionId={inRoom}
+          isHost={!!isOwnLive}
+          onEnd={isOwnLive ? endLive : undefined}
+          onLeave={() => { setInRoom(null); loadData(); }}
+          onRecordingReady={isOwnLive ? handleRecordingReady : undefined}
+        />
+        {pendingRec && (
+          <AttachRecordingModal
+            sessionId={pendingRec.sessionId}
+            sessionTitle={pendingRec.title}
+            liveClassIds={pendingRec.classIds}
+            initialFile={pendingRec.file}
+            onClose={() => setPendingRec(null)}
+            onAttached={() => { setPendingRec(null); loadData(); }}
+          />
+        )}
+      </>
     );
   }
 
@@ -432,6 +469,18 @@ export default function ProfesseurLivePage() {
             addedAt: replayLive.ended_at ?? new Date().toISOString(),
           }}
           onClose={() => setReplayLive(null)}
+        />
+      )}
+
+      {/* Enregistrement en attente (si le prof a quitté le live avec un enregistrement non téléversé) */}
+      {pendingRec && (
+        <AttachRecordingModal
+          sessionId={pendingRec.sessionId}
+          sessionTitle={pendingRec.title}
+          liveClassIds={pendingRec.classIds}
+          initialFile={pendingRec.file}
+          onClose={() => setPendingRec(null)}
+          onAttached={() => { setPendingRec(null); loadData(); }}
         />
       )}
     </>
