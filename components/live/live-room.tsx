@@ -282,8 +282,14 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
             ],
       },
       interfaceConfigOverwrite: {
-        SHOW_JITSI_WATERMARK:      false,
-        SHOW_WATERMARK_FOR_GUESTS: false,
+        // Watermark = logo CITSA en haut-gauche de la salle Jitsi.
+        // L'URL doit être absolue car servie depuis l'iframe 8x8.vc.
+        // En localhost, l'iframe ne peut pas atteindre notre serveur → le watermark
+        // ne s'affichera qu'en prod (https://cita-school.vercel.app).
+        SHOW_JITSI_WATERMARK:      true,
+        SHOW_WATERMARK_FOR_GUESTS: true,
+        DEFAULT_LOGO_URL:          `${window.location.origin}/logo-citsa.jpg`,
+        JITSI_WATERMARK_LINK:      window.location.origin,
         DEFAULT_BACKGROUND:        "#0d0d0d",
         DISABLE_VIDEO_BACKGROUND:  false,
       },

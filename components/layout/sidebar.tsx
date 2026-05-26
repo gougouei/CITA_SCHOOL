@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -63,9 +64,14 @@ export function Sidebar({ role, userName, userInitials, avatarUrl, sections, isO
         {/* Logo + fermer mobile */}
         <div className="flex items-center justify-between pb-6 border-b border-white/[0.08] mb-6">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 bg-gradient-to-br from-citsa-red to-citsa-red-dark rounded-sm flex items-center justify-center font-serif font-bold text-base flex-shrink-0">
-              C
-            </div>
+            <Image
+              src="/logo-citsa.jpg"
+              alt="CITSA"
+              width={40}
+              height={40}
+              priority
+              className="w-10 h-10 object-contain flex-shrink-0"
+            />
             <span className="font-serif text-base font-semibold leading-tight truncate">
               {role === "admin" ? "CITSA Admin" : role === "professor" ? "Espace Prof." : "Espace Étudiant"}
             </span>
