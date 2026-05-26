@@ -1,7 +1,7 @@
 # CITSA OCCULTE SCHOOL INTERNATIONAL — Contexte Projet
 
 > Fichier de référence complet. Redonner ce fichier à Claude Code en début de session pour restaurer tout le contexte.
-> **Dernière mise à jour : v0.8.0**
+> **Dernière mise à jour : v0.9.0**
 
 ---
 
@@ -13,8 +13,8 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 **Repo GitHub :** https://github.com/gougouei/CITA_SCHOOL
 **Répertoire local :** `/Users/mac/Documents/cita_school`
 **Branche principale :** `main`
-**Dernière version taguée :** `v0.8.0`
-**Déploiement :** Vercel (auto-déploie chaque push sur `main`)
+**Dernière version :** `v0.9.0`
+**Production :** https://cita-school.vercel.app (auto-déploie sur push `main`)
 
 ---
 
@@ -28,8 +28,8 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 | Base de données | **Supabase** (Auth + PostgreSQL + Storage + Realtime) |
 | Composants | CVA (class-variance-authority) |
 | Icons | lucide-react |
-| Live vidéo | **Jitsi Meet** (instance publique meet.jit.si) |
-| PDF | **react-pdf** (PDF.js worker servi en local) |
+| Live vidéo | **Jitsi as a Service (JaaS / 8x8.vc)** avec JWT RS256 |
+| PDF | **react-pdf 9.2.1** (pdfjs-dist 4.x — pinné, ne pas upgrade) |
 
 ### Projet Supabase
 - **Nom :** CITA_SCHOOL
@@ -341,23 +341,33 @@ cita_school/
 
 ---
 
-## 9. Système de cours live — Jitsi Meet
+## 9. Système de cours live — Jitsi as a Service (JaaS)
 
 ### Architecture
-- Provider : **Jitsi Meet** (instance publique `meet.jit.si`)
-- Rooms privées avec noms UUID non-devinables (`citsa-{uuid}`)
+- Provider : **Jitsi as a Service (8x8.vc)** — JWT RS256 signé côté serveur
+- Migration depuis `meet.jit.si` car celui-ci limite les iframes à 5 minutes en démo
+- Rooms privées avec noms UUID non-devinables (`citsa-{uuid}`), préfixées par l'AppID
 - Headers `Permissions-Policy` dans `next.config.ts` pour autoriser iframe + Safari/mobile
+- Logo CITSA en **overlay** (`pointer-events-none`) au-dessus de l'iframe — JaaS gratuit n'autorise pas le watermark custom intégré
 
 ### Composant : `components/live/live-room.tsx`
-- Charge dynamiquement `external_api.js` (avec polling de secours)
+- Charge dynamiquement `external_api.js` depuis `https://8x8.vc/{appId}/external_api.js`
+- Passe le JWT signé en option du constructor `JitsiMeetExternalAPI`
 - UI Jitsi prebuilt complète (vidéo, audio, screen share, chat, raise hand, recording)
 - Toolbar différent pour modérateur vs participant
+- Logo CITSA en overlay top-left de la vidéo (visible toujours, même hors plein-écran)
+
+### Helper : `lib/jaas.ts`
+- `getJaasConfig()` lit `JAAS_APP_ID` + `JAAS_KID` + `JAAS_PRIVATE_KEY` (normalise les `\n`)
+- `signJaasToken({ room, userId, userName, isModerator })` génère un JWT RS256 (TTL 4h)
+- `getJaasRoomName(roomName)` préfixe la room avec l'AppID quand JaaS est configuré
+- Fallback transparent vers `meet.jit.si` si les env JaaS sont absentes
 
 ### Routes API
 - `POST /api/professor/start-live` — class_live (1 classe)
 - `POST /api/admin/start-broadcast` — broadcast (tous les utilisateurs)
 - `POST /api/professor/end-live` — termine la session
-- `POST /api/live/access` — vérifie l'accès et retourne room_name
+- `POST /api/live/access` — vérifie l'accès et retourne `{ room_name, jwt, app_id, is_moderator, ... }`
 
 ### Sécurité
 - L'URL Jitsi n'est jamais exposée publiquement
@@ -532,16 +542,10 @@ Tailles adaptatives :
 
 ## 16. Ce qui reste à faire
 
-### Priorité haute (fonctionnalités métier)
-- [ ] **Exercices** — UI complète : création par prof (QCM/quiz/PDF), passage par étudiant, correction auto, notation manuelle
-- [ ] **Notifications** — UI dans la sidebar (badge dynamique) + page dédiée
-- [ ] **Page mot de passe oublié** — `/mot-de-passe-oublie` (reset par admin)
-
 ### Priorité moyenne
-- [ ] **Bouton "Réinitialiser mot de passe"** dans le modal admin étudiant/prof (route API existe)
-- [ ] **Bouton "Supprimer compte"** dans le modal admin (route API existe)
 - [ ] **Email transactionnel** quand l'admin approuve une admission
-- [ ] **Recording natif cloud** des lives Jitsi (passer à Daily/LiveKit ou self-host Jibri) — actuellement flow manuel par le prof
+- [ ] **Recording natif cloud** des lives — JaaS recording est payant ; alternatives Daily/LiveKit/Jibri self-host. Le flow manuel d'enregistrement écran in-app fonctionne déjà.
+- [ ] **Exercices : type "Quiz" texte libre + "PDF à rendre"** (le QCM est livré en v0.9.0, ces deux autres types nécessitent notation manuelle)
 
 ### Priorité basse / améliorations
 - [ ] Notifications push browser
@@ -554,16 +558,21 @@ Tailles adaptatives :
 ## 17. Variables d'environnement (`.env.local`)
 
 ```env
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://qaudfykhzhpthwhynewz.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 
-# Jitsi Meet (cours en direct)
-NEXT_PUBLIC_JITSI_DOMAIN=meet.jit.si
+# Jitsi as a Service (8x8)
+NEXT_PUBLIC_JITSI_DOMAIN=8x8.vc
+JAAS_APP_ID=vpaas-magic-cookie-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_JAAS_APP_ID=vpaas-magic-cookie-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+JAAS_KID=vpaas-magic-cookie-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/xxxxxx
+JAAS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 ```
 
-⚠️ Le `SUPABASE_SERVICE_ROLE_KEY` est utilisé par les routes API admin pour bypasser RLS. Ne jamais l'exposer côté client.
+⚠️ Le `SUPABASE_SERVICE_ROLE_KEY` et `JAAS_PRIVATE_KEY` sont utilisés par les routes API uniquement. Ne jamais les exposer côté client. Les mêmes variables doivent être ajoutées dans Vercel → Settings → Environment Variables.
 
 ---
 
@@ -594,19 +603,39 @@ claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp
 - **Client components** : `"use client"` quand `useState`, `useEffect`, event handlers, hooks
 - **Server components** : par défaut
 - **Modals** : pattern slide-in depuis la droite (`fixed right-0 top-0 h-full max-w-[480px]`) avec backdrop blur
+- **Modals — gestion d'erreur** : les `save` doivent retourner `Promise<string | null>` (null = succès) — le modal reste ouvert et affiche l'erreur si non-null. Plus de `try/catch` qui ferment le modal sur erreur silencieuse.
 - **Pas de commentaires** sauf si le WHY est non-évident
 - **Pas de téléchargement** sur les fichiers de bibliothèque
 - **Erreurs Supabase** : utiliser une fonction qui sait lire les objets non-`Error` (voir `extractError`)
 - **RLS** : éviter les sous-requêtes auto-référencées → utiliser des fonctions `security definer`
 - **Storage paths** : toujours préfixer par `{user_id}/` pour les buckets avec policies par dossier
 - **Upload de gros fichiers** : utiliser `createSignedUploadUrl` côté client pour bypass Vercel
-- **Realtime** : utiliser des `CustomEvent` (`profile-updated`, `messages-changed`, `lives-changed`, `calendar-events-changed`) pour rafraîchir les badges instantanément
+- **Realtime** : utiliser des `CustomEvent` (`profile-updated`, `messages-changed`, `lives-changed`, `calendar-events-changed`, `notifications-changed`) pour rafraîchir les badges instantanément
+- **react-pdf pinné à 9.2.1** (pdfjs-dist 4.x) — react-pdf 10.x (pdfjs-dist 5.x) casse sous Next.js 15 Webpack avec `Object.defineProperty called on non-object`. **Ne pas upgrade.**
 
 ---
 
 ## 20. Historique des versions
 
-### v0.8.0 — Live recordings + library thumbnails *(actuelle)*
+### v0.9.0 — JaaS, exercices QCM, notifications, branding *(actuelle)*
+- **Migration Jitsi Meet → JaaS (8x8.vc)** :
+  - Plus de limite 5 min (le free `meet.jit.si` a commencé à imposer cette limite en iframe)
+  - JWT RS256 signé serveur via `lib/jaas.ts` (lib `jsonwebtoken`)
+  - 4 env vars : `JAAS_APP_ID`, `JAAS_KID`, `JAAS_PRIVATE_KEY`, `NEXT_PUBLIC_JAAS_APP_ID`
+  - Fallback transparent vers meet.jit.si si JaaS absent
+- **Fix micro Chrome** : retrait du `sandbox` custom sur l'iframe Jitsi (Chrome strict sur sandbox + `getUserMedia`)
+- **Branding** : logo CITSA (`public/logo-citsa.jpg`) dans Navbar, Sidebar et overlay au-dessus de la vidéo Jitsi (`pointer-events-none`)
+- **Exercices QCM (MVP)** :
+  - Schéma `exercises` + `exercise_questions` + `exercise_submissions` (voir `supabase/migration_exercises.sql`)
+  - RLS : prof gère ses exercices, étudiant voit ceux publiés de ses classes
+  - Prof : modal de création (questions single/multiple choice, options, points, brouillon/publié)
+  - Étudiant : passation avec auto-grading par points côté serveur
+- **Notifications UI** : page partagée `components/notifications/notifications-page.tsx` + 3 routes par rôle + badge sidebar dynamique (polling 20s + event `notifications-changed`)
+- **Page `/mot-de-passe-oublie`** : statique avec mailto et WhatsApp pré-remplis (les usernames CITSA n'ont pas de vrais emails donc pas de reset par lien)
+- **Admin modals** : bouton "Supprimer le compte" + erreurs de sauvegarde affichées **dans** le modal (avant : modal fermé sur erreur silencieuse). Insert vérifié par row count.
+- **Fix react-pdf** : downgrade 10.4.1 → 9.2.1 (pdfjs-dist 5.x cassait Webpack)
+
+### v0.8.0 — Live recordings + library thumbnails
 - **Enregistrement des lives** (flow manuel Option A) :
   - Colonne `recording_file_id` sur `live_sessions` → FK vers `library_files`
   - RLS : prof UPDATE son live · étudiants SELECT les ended-lives de leurs classes avec recording
