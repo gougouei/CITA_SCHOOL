@@ -97,32 +97,48 @@ export default function AdminProfesseursPage() {
     }
   }
 
-  async function handleSave(updated: Professor) {
+  /**
+   * Sauvegarde un prof. Retourne `null` en cas de succès, ou un message
+   * d'erreur à afficher dans le modal. Le modal ne se ferme que si on
+   * retourne `null` — c'est lui qui appelle onSaved après succès.
+   */
+  async function handleSave(updated: Professor): Promise<string | null> {
     setError(null);
     try {
+      // 1. Mise à jour du profil
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: updated.full_name, is_active: updated.is_active })
         .eq("id", updated.id);
-      if (profileError) throw profileError;
+      if (profileError) throw new Error(`Profil : ${profileError.message}`);
 
+      // 2. Récupérer les classes actuellement liées
       const { data: current, error: fetchError } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("user_id", updated.id)
         .eq("role", "professor");
-      if (fetchError) throw fetchError;
+      if (fetchError) throw new Error(`Lecture classes : ${fetchError.message}`);
 
       const currentIds = new Set((current ?? []).map((m) => m.class_id));
       const desiredIds = new Set(updated.classes);
       const toAdd      = updated.classes.filter((id) => !currentIds.has(id));
       const toRemove   = [...currentIds].filter((id) => !desiredIds.has(id));
 
+      // 3. Ajouts — on demande select() pour vérifier que les rows sont écrites
       if (toAdd.length > 0) {
         const rows = toAdd.map((cid) => ({ class_id: cid, user_id: updated.id, role: "professor" as const }));
-        const { error } = await supabase.from("class_members").insert(rows);
-        if (error) throw error;
+        const { data: inserted, error } = await supabase
+          .from("class_members")
+          .insert(rows)
+          .select("class_id");
+        if (error) throw new Error(`Ajout classes : ${error.message}`);
+        if (!inserted || inserted.length !== toAdd.length) {
+          throw new Error(`Ajout silencieusement bloqué (${inserted?.length ?? 0}/${toAdd.length} insérés). Vérifiez les RLS de class_members.`);
+        }
       }
+
+      // 4. Retraits
       if (toRemove.length > 0) {
         const { error } = await supabase
           .from("class_members")
@@ -130,13 +146,15 @@ export default function AdminProfesseursPage() {
           .eq("user_id", updated.id)
           .eq("role", "professor")
           .in("class_id", toRemove);
-        if (error) throw error;
+        if (error) throw new Error(`Retrait classes : ${error.message}`);
       }
 
-      setEditTarget(null);
       await loadData();
+      return null;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la mise à jour");
+      const msg = e instanceof Error ? e.message : "Erreur lors de la mise à jour";
+      setError(msg);
+      return msg;
     }
   }
 
@@ -265,7 +283,11 @@ export default function AdminProfesseursPage() {
           professor={editTarget}
           allClasses={allClasses}
           onClose={() => setEditTarget(null)}
-          onSave={handleSave}
+          onSave={async (updated) => {
+            const err = await handleSave(updated);
+            if (err === null) setEditTarget(null);
+            return err;
+          }}
           onDeleted={async () => { setEditTarget(null); await loadData(); }}
         />
       )}
@@ -295,7 +317,7 @@ function EditProfessorModal({
   professor: Professor;
   allClasses: ClassOption[];
   onClose: () => void;
-  onSave: (p: Professor) => void | Promise<void>;
+  onSave: (p: Professor) => Promise<string | null>;
   onDeleted: () => void | Promise<void>;
 }) {
   const [tab, setTab] = useState<Tab>("informations");
@@ -306,6 +328,9 @@ function EditProfessorModal({
   const [copied, setCopied] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
+
+  const [saving, setSaving]   = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -360,8 +385,15 @@ function EditProfessorModal({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function handleSave() {
-    onSave({ ...professor, full_name: fullName, is_active: isActive, classes });
+  async function handleSave() {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const err = await onSave({ ...professor, full_name: fullName, is_active: isActive, classes });
+      if (err) setSaveError(err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const TABS: { id: Tab; label: string }[] = [
@@ -711,9 +743,18 @@ function EditProfessorModal({
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-6 py-4 border-t border-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 sm:gap-3">
-          <Button variant="outline" onClick={onClose} className="sm:w-auto">Annuler</Button>
-          <Button variant="accent" onClick={handleSave} className="sm:w-auto">Enregistrer</Button>
+        <div className="px-4 sm:px-6 py-4 border-t border-border flex flex-col items-stretch gap-2">
+          {saveError && (
+            <div className="px-3 py-2 rounded-md bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-[0.78rem]">
+              ⚠️ {saveError}
+            </div>
+          )}
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2 sm:gap-3">
+            <Button variant="outline" onClick={onClose} disabled={saving} className="sm:w-auto">Annuler</Button>
+            <Button variant="accent" onClick={handleSave} disabled={saving} className="sm:w-auto">
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </div>
         </div>
       </div>
     </>

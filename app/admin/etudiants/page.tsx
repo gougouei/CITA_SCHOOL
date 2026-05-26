@@ -81,23 +81,25 @@ export default function AdminEtudiantsPage() {
     setEditing(null);
   }
 
-  async function saveStudent(updated: Student) {
+  /**
+   * Retourne `null` en cas de succès, sinon un message d'erreur à afficher
+   * dans le modal. Le modal ne se ferme que si la sauvegarde réussit.
+   */
+  async function saveStudent(updated: Student): Promise<string | null> {
     setError(null);
     try {
-      // 1. Mise à jour du profil (full_name + is_active)
       const { error: profileError } = await supabase
         .from("profiles")
         .update({ full_name: updated.full_name, is_active: updated.is_active })
         .eq("id", updated.id);
-      if (profileError) throw profileError;
+      if (profileError) throw new Error(`Profil : ${profileError.message}`);
 
-      // 2. Réconciliation des classes
       const { data: current, error: fetchError } = await supabase
         .from("class_members")
         .select("class_id")
         .eq("user_id", updated.id)
         .eq("role", "student");
-      if (fetchError) throw fetchError;
+      if (fetchError) throw new Error(`Lecture classes : ${fetchError.message}`);
 
       const currentIds = new Set((current ?? []).map((m) => m.class_id));
       const desiredIds = new Set(updated.classes);
@@ -106,8 +108,14 @@ export default function AdminEtudiantsPage() {
 
       if (toAdd.length > 0) {
         const rows = toAdd.map((cid) => ({ class_id: cid, user_id: updated.id, role: "student" as const }));
-        const { error } = await supabase.from("class_members").insert(rows);
-        if (error) throw error;
+        const { data: inserted, error } = await supabase
+          .from("class_members")
+          .insert(rows)
+          .select("class_id");
+        if (error) throw new Error(`Ajout classes : ${error.message}`);
+        if (!inserted || inserted.length !== toAdd.length) {
+          throw new Error(`Ajout silencieusement bloqué (${inserted?.length ?? 0}/${toAdd.length} insérés). Vérifiez les RLS de class_members.`);
+        }
       }
 
       if (toRemove.length > 0) {
@@ -117,13 +125,15 @@ export default function AdminEtudiantsPage() {
           .eq("user_id", updated.id)
           .eq("role", "student")
           .in("class_id", toRemove);
-        if (error) throw error;
+        if (error) throw new Error(`Retrait classes : ${error.message}`);
       }
 
-      closeModal();
       await loadData();
+      return null;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erreur lors de la mise à jour");
+      const msg = e instanceof Error ? e.message : "Erreur lors de la mise à jour";
+      setError(msg);
+      return msg;
     }
   }
 
@@ -253,7 +263,11 @@ export default function AdminEtudiantsPage() {
         <EditStudentModal
           student={editing}
           allClasses={allClasses}
-          onSave={saveStudent}
+          onSave={async (updated) => {
+            const err = await saveStudent(updated);
+            if (err === null) closeModal();
+            return err;
+          }}
           onClose={closeModal}
           onDeleted={async () => { closeModal(); await loadData(); }}
         />
@@ -561,7 +575,7 @@ function EditStudentModal({
 }: {
   student: Student;
   allClasses: ClassOption[];
-  onSave: (s: Student) => void | Promise<void>;
+  onSave: (s: Student) => Promise<string | null>;
   onClose: () => void;
   onDeleted: () => void | Promise<void>;
 }) {
@@ -571,6 +585,9 @@ function EditStudentModal({
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "classes" | "securite">("info");
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -623,8 +640,15 @@ function EditStudentModal({
     }
   }
 
-  function handleSave() {
-    onSave(form);
+  async function handleSave() {
+    setSaveError(null);
+    setSaving(true);
+    try {
+      const err = await onSave(form);
+      if (err) setSaveError(err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   const tabs = [
@@ -968,9 +992,18 @@ function EditStudentModal({
         </div>
 
         {/* Footer */}
-        <div className="px-4 sm:px-6 py-4 border-t border-border bg-secondary flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-between gap-2 sm:gap-3">
-          <Button variant="outline" onClick={onClose} className="sm:w-auto">Annuler</Button>
-          <Button variant="accent" onClick={handleSave} className="sm:w-auto">Enregistrer</Button>
+        <div className="px-4 sm:px-6 py-4 border-t border-border bg-secondary flex flex-col items-stretch gap-2">
+          {saveError && (
+            <div className="px-3 py-2 rounded-md bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-[0.78rem]">
+              ⚠️ {saveError}
+            </div>
+          )}
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-between gap-2 sm:gap-3">
+            <Button variant="outline" onClick={onClose} disabled={saving} className="sm:w-auto">Annuler</Button>
+            <Button variant="accent" onClick={handleSave} disabled={saving} className="sm:w-auto">
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </div>
         </div>
       </div>
     </>
