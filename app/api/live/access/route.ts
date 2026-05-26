@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getJaasConfig, signJaasToken } from "@/lib/jaas";
 import { NextResponse } from "next/server";
 
 /**
@@ -69,11 +70,31 @@ export async function POST(request: Request) {
 
   if (!allowed) return NextResponse.json({ error: "Accès refusé à ce cours" }, { status: 403 });
 
+  const isModerator = isHost || isAdmin;
+
+  // Si JaaS est configuré, on signe un JWT et on retourne aussi l'appId
+  // pour préfixer le room name côté client.
+  const jaasConfig = getJaasConfig();
+  let jwt: string | null     = null;
+  let appId: string | null   = null;
+
+  if (jaasConfig) {
+    appId = jaasConfig.appId;
+    jwt = signJaasToken({
+      room:        session.room_name,
+      userId:      user.id,
+      userName:    profile.full_name,
+      isModerator,
+    });
+  }
+
   return NextResponse.json({
     room_name:    session.room_name,
     room_url:     session.room_url,
     title:        session.title,
     user_name:    profile.full_name,
-    is_moderator: isHost || isAdmin,
+    is_moderator: isModerator,
+    jwt,
+    app_id:       appId,
   });
 }

@@ -17,6 +17,10 @@ interface AccessData {
   user_name:    string;
   title:        string;
   is_moderator: boolean;
+  /** JWT JaaS (présent uniquement si JaaS est configuré côté serveur) */
+  jwt:          string | null;
+  /** AppID JaaS (présent uniquement si JaaS est configuré côté serveur) */
+  app_id:       string | null;
 }
 
 // Types minimaux pour l'API Jitsi
@@ -31,7 +35,13 @@ declare global {
   interface Window { JitsiMeetExternalAPI?: JitsiCtor; }
 }
 
-const JITSI_DOMAIN = process.env.NEXT_PUBLIC_JITSI_DOMAIN ?? "meet.jit.si";
+const JITSI_DOMAIN  = process.env.NEXT_PUBLIC_JITSI_DOMAIN  ?? "meet.jit.si";
+const JAAS_APP_ID   = process.env.NEXT_PUBLIC_JAAS_APP_ID   ?? "";
+const USING_JAAS    = JITSI_DOMAIN === "8x8.vc" && JAAS_APP_ID.length > 0;
+// Sur JaaS le script externe se trouve sous /{appId}/external_api.js
+const JITSI_SCRIPT_URL = USING_JAAS
+  ? `https://${JITSI_DOMAIN}/${JAAS_APP_ID}/external_api.js`
+  : `https://${JITSI_DOMAIN}/external_api.js`;
 
 export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }: LiveRoomProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -235,8 +245,14 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
       apiRef.current = null;
     }
 
+    // Sur JaaS la room name doit être préfixée par l'AppID
+    const fullRoomName = access.app_id
+      ? `${access.app_id}/${access.room_name}`
+      : access.room_name;
+
     const api = new window.JitsiMeetExternalAPI(JITSI_DOMAIN, {
-      roomName: access.room_name,
+      roomName: fullRoomName,
+      ...(access.jwt ? { jwt: access.jwt } : {}),
       parentNode: containerRef.current,
       width:  "100%",
       height: "100%",
@@ -316,7 +332,7 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
   return (
     <>
       <Script
-        src={`https://${JITSI_DOMAIN}/external_api.js`}
+        src={JITSI_SCRIPT_URL}
         strategy="afterInteractive"
         onLoad={() => setScriptLoaded(true)}
         onError={() => {

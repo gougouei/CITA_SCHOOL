@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { getJaasConfig } from "@/lib/jaas";
 import { NextResponse } from "next/server";
 
 const JITSI_DOMAIN = process.env.NEXT_PUBLIC_JITSI_DOMAIN ?? "meet.jit.si";
@@ -52,7 +53,9 @@ export async function POST(request: Request) {
 
   // ─── 4. Générer un nom de room unique (non devinable) ──────────────────────
   const roomName = `citsa-${crypto.randomUUID()}`;
-  const roomUrl  = `https://${JITSI_DOMAIN}/${roomName}`;
+  const jaasConfig = getJaasConfig();
+  const roomPath = jaasConfig ? `${jaasConfig.appId}/${roomName}` : roomName;
+  const roomUrl  = `https://${JITSI_DOMAIN}/${roomPath}`;
 
   // ─── 5. Créer la live_session ──────────────────────────────────────────────
   const { data: session, error: sessionError } = await supabase
