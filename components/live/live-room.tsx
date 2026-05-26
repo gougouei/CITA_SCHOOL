@@ -243,7 +243,6 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
       userInfo: {
         displayName: access.user_name,
       },
-      sandbox: "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation",
       configOverwrite: {
         prejoinPageEnabled: false,
         disableDeepLinking: true,
