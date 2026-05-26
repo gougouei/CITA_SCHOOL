@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 interface LiveRoomProps {
@@ -282,14 +283,8 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
             ],
       },
       interfaceConfigOverwrite: {
-        // Watermark = logo CITSA en haut-gauche de la salle Jitsi.
-        // L'URL doit être absolue car servie depuis l'iframe 8x8.vc.
-        // En localhost, l'iframe ne peut pas atteindre notre serveur → le watermark
-        // ne s'affichera qu'en prod (https://cita-school.vercel.app).
-        SHOW_JITSI_WATERMARK:      true,
-        SHOW_WATERMARK_FOR_GUESTS: true,
-        DEFAULT_LOGO_URL:          `${window.location.origin}/logo-citsa.jpg`,
-        JITSI_WATERMARK_LINK:      window.location.origin,
+        SHOW_JITSI_WATERMARK:      false,
+        SHOW_WATERMARK_FOR_GUESTS: false,
         DEFAULT_BACKGROUND:        "#0d0d0d",
         DISABLE_VIDEO_BACKGROUND:  false,
       },
@@ -351,6 +346,14 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
         {/* Barre du haut */}
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 bg-black/60 border-b border-white/10 flex items-center justify-between gap-2 sm:gap-3 flex-shrink-0 flex-wrap">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <Image
+              src="/logo-citsa.jpg"
+              alt="CITSA"
+              width={32}
+              height={32}
+              priority
+              className="w-7 h-7 sm:w-9 sm:h-9 object-contain flex-shrink-0"
+            />
             <div className="flex items-center gap-1.5 bg-[hsla(0,84%,60%,0.15)] text-[hsl(0,84%,70%)] px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[0.6rem] sm:text-[0.65rem] font-bold uppercase tracking-wider flex-shrink-0">
               <span className="w-1.5 h-1.5 bg-[hsl(0,84%,65%)] rounded-full animate-pulse" />
               <span className="hidden xs:inline">En direct</span>
