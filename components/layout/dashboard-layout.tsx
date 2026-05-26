@@ -47,9 +47,10 @@ export function DashboardLayout({
   const [userName,       setUserName]       = useState(fallbackName);
   const [userInitials,   setUserInitials]   = useState(fallbackInitials);
   const [avatarUrl,      setAvatarUrl]      = useState<string | null>(null);
-  const [upcomingEvents,   setUpcomingEvents]   = useState<number>(0);
-  const [activeLives,      setActiveLives]      = useState<number>(0);
-  const [unreadMessages,   setUnreadMessages]   = useState<number>(0);
+  const [upcomingEvents,        setUpcomingEvents]        = useState<number>(0);
+  const [activeLives,           setActiveLives]           = useState<number>(0);
+  const [unreadMessages,        setUnreadMessages]        = useState<number>(0);
+  const [unreadNotifications,   setUnreadNotifications]   = useState<number>(0);
 
   // Badges : seulement pour étudiants et professeurs
   const showCalendarBadge  = role === "student" || role === "professor";
@@ -80,6 +81,14 @@ export function DashboardLayout({
     setUnreadMessages(typeof data === "number" ? data : 0);
   }
 
+  async function loadUnreadNotifications() {
+    const { count } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("is_read", false);
+    setUnreadNotifications(count ?? 0);
+  }
+
   useEffect(() => {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -101,6 +110,7 @@ export function DashboardLayout({
     loadUpcomingEvents();
     loadActiveLives();
     loadUnreadMessages();
+    loadUnreadNotifications();
 
     // Polling pour les compteurs qui peuvent changer en arrière-plan
     const livesInterval = showLivesBadge
@@ -109,6 +119,7 @@ export function DashboardLayout({
     const messagesInterval = showMessagesBadge
       ? setInterval(loadUnreadMessages, 15000)
       : null;
+    const notificationsInterval = setInterval(loadUnreadNotifications, 20000);
 
     function handleProfileUpdate(e: Event) {
       const detail = (e as CustomEvent<{ avatarUrl?: string | null; fullName?: string }>).detail;
@@ -118,22 +129,26 @@ export function DashboardLayout({
         setUserInitials(computeInitials(detail.fullName));
       }
     }
-    function handleEventsChanged()   { loadUpcomingEvents();  }
-    function handleLivesChanged()    { loadActiveLives();     }
-    function handleMessagesChanged() { loadUnreadMessages();  }
+    function handleEventsChanged()        { loadUpcomingEvents();      }
+    function handleLivesChanged()         { loadActiveLives();          }
+    function handleMessagesChanged()      { loadUnreadMessages();       }
+    function handleNotificationsChanged() { loadUnreadNotifications();  }
 
-    window.addEventListener("profile-updated",         handleProfileUpdate);
-    window.addEventListener("calendar-events-changed", handleEventsChanged);
-    window.addEventListener("lives-changed",           handleLivesChanged);
-    window.addEventListener("messages-changed",        handleMessagesChanged);
+    window.addEventListener("profile-updated",          handleProfileUpdate);
+    window.addEventListener("calendar-events-changed",  handleEventsChanged);
+    window.addEventListener("lives-changed",            handleLivesChanged);
+    window.addEventListener("messages-changed",         handleMessagesChanged);
+    window.addEventListener("notifications-changed",    handleNotificationsChanged);
 
     return () => {
-      window.removeEventListener("profile-updated",         handleProfileUpdate);
-      window.removeEventListener("calendar-events-changed", handleEventsChanged);
-      window.removeEventListener("lives-changed",           handleLivesChanged);
-      window.removeEventListener("messages-changed",        handleMessagesChanged);
-      if (livesInterval)    clearInterval(livesInterval);
-      if (messagesInterval) clearInterval(messagesInterval);
+      window.removeEventListener("profile-updated",          handleProfileUpdate);
+      window.removeEventListener("calendar-events-changed",  handleEventsChanged);
+      window.removeEventListener("lives-changed",            handleLivesChanged);
+      window.removeEventListener("messages-changed",         handleMessagesChanged);
+      window.removeEventListener("notifications-changed",    handleNotificationsChanged);
+      if (livesInterval)         clearInterval(livesInterval);
+      if (messagesInterval)      clearInterval(messagesInterval);
+      clearInterval(notificationsInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -150,6 +165,9 @@ export function DashboardLayout({
       }
       if (showMessagesBadge && item.href.endsWith("/messagerie") && unreadMessages > 0) {
         return { ...item, badge: unreadMessages };
+      }
+      if (item.href.endsWith("/notifications") && unreadNotifications > 0) {
+        return { ...item, badge: unreadNotifications };
       }
       return item;
     }),

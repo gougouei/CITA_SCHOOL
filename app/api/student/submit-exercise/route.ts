@@ -36,12 +36,16 @@ export async function POST(request: Request) {
   }
 
   const isAutoGradable = ["quiz", "qcm"].includes(exercise.exercise_type);
-  let score: number | null = null;
+  let score:     number | null = null;
+  let max_score: number | null = null;
   let is_graded = false;
 
   if (isAutoGradable && exercise.questions) {
-    const result = autoGrade(exercise.questions as ExerciseQuestion[], answers);
-    score = result.score;
+    const questions = exercise.questions as ExerciseQuestion[];
+    max_score = questions.reduce((s, q) => s + (Number(q.points) || 1), 0);
+    const result = autoGrade(questions, answers);
+    // autoGrade renvoie un % 0-100 — on le convertit en points sur max_score
+    score = Math.round((result.score / 100) * max_score * 100) / 100;
     is_graded = true;
   }
 
@@ -52,6 +56,7 @@ export async function POST(request: Request) {
       student_id: session.user.id,
       answers,
       score,
+      max_score,
       is_graded,
       submitted_at: new Date().toISOString(),
     })
