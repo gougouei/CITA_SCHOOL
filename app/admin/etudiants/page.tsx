@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { X, KeyRound, User, BookOpen, ShieldCheck } from "lucide-react";
+import { X, KeyRound, User, BookOpen, ShieldCheck, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -255,6 +255,7 @@ export default function AdminEtudiantsPage() {
           allClasses={allClasses}
           onSave={saveStudent}
           onClose={closeModal}
+          onDeleted={async () => { closeModal(); await loadData(); }}
         />
       )}
 
@@ -556,11 +557,13 @@ function EditStudentModal({
   allClasses,
   onSave,
   onClose,
+  onDeleted,
 }: {
   student: Student;
   allClasses: ClassOption[];
   onSave: (s: Student) => void | Promise<void>;
   onClose: () => void;
+  onDeleted: () => void | Promise<void>;
 }) {
   const [form, setForm] = useState<Student>({ ...student, classes: [...student.classes] });
   const [resetDone, setResetDone] = useState(false);
@@ -568,6 +571,10 @@ function EditStudentModal({
   const [resetLoading, setResetLoading] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"info" | "classes" | "securite">("info");
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function toggleClass(classId: string) {
     setForm((prev) => ({
@@ -595,6 +602,24 @@ function EditStudentModal({
       setResetError(e instanceof Error ? e.message : "Erreur de réinitialisation");
     } finally {
       setResetLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteError(null);
+    setDeleteLoading(true);
+    try {
+      const res = await fetch("/api/admin/delete-user", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ user_id: form.id }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Erreur de suppression");
+      await onDeleted();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Erreur de suppression");
+      setDeleteLoading(false);
     }
   }
 
@@ -843,6 +868,65 @@ function EditStudentModal({
                     <p className="text-[0.7rem] text-[hsl(38,70%,30%)] bg-[hsl(38,90%,50%,0.08)] px-3 py-2 rounded-md border border-[hsl(38,90%,50%,0.3)]">
                       ⚠️ Notez ce mot de passe maintenant — il ne sera plus affiché.
                     </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Zone de danger — suppression du compte */}
+              <div className="rounded-xl border border-[hsla(0,84%,60%,0.35)] bg-[hsla(0,84%,60%,0.04)] px-5 py-5">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="w-9 h-9 rounded-lg bg-[hsla(0,84%,60%,0.12)] flex items-center justify-center flex-shrink-0">
+                    <Trash2 size={18} className="text-citsa-red-hex" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#141414]">Supprimer le compte</p>
+                    <p className="text-xs text-muted-fg mt-0.5">
+                      Action <strong>irréversible</strong>. Le compte, l&apos;accès et toutes les associations classes/chats seront supprimés.
+                    </p>
+                  </div>
+                </div>
+
+                {deleteError && (
+                  <div className="mb-3 px-3 py-2 rounded-md bg-[hsla(0,84%,60%,0.1)] border border-[hsla(0,84%,60%,0.25)] text-citsa-red-hex text-[0.78rem]">
+                    {deleteError}
+                  </div>
+                )}
+
+                {!confirmDelete ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDelete(true)}
+                    className="w-full border-[hsla(0,84%,60%,0.4)] text-citsa-red-hex hover:bg-[hsla(0,84%,60%,0.06)]"
+                  >
+                    <Trash2 size={14} className="mr-2" />
+                    Supprimer ce compte étudiant
+                  </Button>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-[#141414] mb-1">
+                      Confirmer la suppression de <strong>{form.full_name}</strong> ({form.username}) ?
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmDelete(false)}
+                        disabled={deleteLoading}
+                        className="flex-1"
+                      >
+                        Annuler
+                      </Button>
+                      <Button
+                        variant="accent"
+                        size="sm"
+                        onClick={handleDelete}
+                        disabled={deleteLoading}
+                        className="flex-1 bg-citsa-red-hex hover:bg-citsa-red-dark"
+                      >
+                        {deleteLoading ? "Suppression…" : "Oui, supprimer"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
