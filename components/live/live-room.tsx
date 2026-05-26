@@ -416,6 +416,19 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
         <div className="flex-1 relative">
           <div ref={containerRef} className="absolute inset-0" />
 
+          {/* Watermark logo CITSA — overlay non-cliquable par-dessus l'iframe Jitsi */}
+          {!loading && !error && (
+            <div className="pointer-events-none absolute top-3 left-3 sm:top-4 sm:left-4 z-20 opacity-80">
+              <Image
+                src="/logo-citsa.jpg"
+                alt="CITSA"
+                width={56}
+                height={56}
+                className="w-10 h-10 sm:w-14 sm:h-14 object-contain drop-shadow-lg"
+              />
+            </div>
+          )}
+
           {loading && !error && (
             <div className="absolute inset-0 flex items-center justify-center text-white/60 text-sm pointer-events-none">
               Connexion à la salle…

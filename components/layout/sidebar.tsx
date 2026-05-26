@@ -63,7 +63,7 @@ export function Sidebar({ role, userName, userInitials, avatarUrl, sections, isO
       >
         {/* Logo + fermer mobile */}
         <div className="flex items-center justify-between pb-6 border-b border-white/[0.08] mb-6">
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center min-w-0">
             <Image
               src="/logo-citsa.jpg"
               alt="CITSA"
@@ -72,9 +72,6 @@ export function Sidebar({ role, userName, userInitials, avatarUrl, sections, isO
               priority
               className="w-10 h-10 object-contain flex-shrink-0"
             />
-            <span className="font-serif text-base font-semibold leading-tight truncate">
-              {role === "admin" ? "CITSA Admin" : role === "professor" ? "Espace Prof." : "Espace Étudiant"}
-            </span>
           </div>
           <button
             onClick={onClose}
