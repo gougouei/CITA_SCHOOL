@@ -422,9 +422,9 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
               <Image
                 src="/logo-citsa.jpg"
                 alt="CITSA"
-                width={56}
-                height={56}
-                className="w-10 h-10 sm:w-14 sm:h-14 object-contain drop-shadow-lg"
+                width={96}
+                height={96}
+                className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg"
               />
             </div>
           )}
