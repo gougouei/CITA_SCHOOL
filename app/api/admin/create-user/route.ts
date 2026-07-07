@@ -7,14 +7,14 @@ import type { UserRole } from "@/types";
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient();
 
-  // Verify caller is admin
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  // Verify caller is admin (getUser valide le JWT côté serveur, contrairement à getSession)
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   const { data: caller } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .single();
 
   if (caller?.role !== "admin") {

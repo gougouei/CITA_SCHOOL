@@ -6,8 +6,8 @@ import type { ExerciseQuestion } from "@/types";
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient();
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
   const { exercise_id, answers } = await request.json();
   if (!exercise_id || !answers) {
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     .from("exercise_submissions")
     .select("id")
     .eq("exercise_id", exercise_id)
-    .eq("student_id", session.user.id)
+    .eq("student_id", user.id)
     .single();
 
   if (existing) {
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     .from("exercise_submissions")
     .insert({
       exercise_id,
-      student_id: session.user.id,
+      student_id: user.id,
       answers,
       score,
       max_score,

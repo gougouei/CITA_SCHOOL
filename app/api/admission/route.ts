@@ -57,6 +57,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Situation matrimoniale invalide." }, { status: 400 });
   }
 
+  // Validation de l'URL de la photo : doit être une URL http(s) bien formée
+  // (empêche l'injection de schémas type javascript:/data: stockés puis rendus
+  // dans l'espace admin).
+  let photoUrl: string;
+  try {
+    const parsed = new URL((body.photo_url as string).trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("protocole non autorisé");
+    }
+    photoUrl = parsed.toString();
+  } catch {
+    return NextResponse.json({ error: "URL de photo invalide." }, { status: 400 });
+  }
+
   // On utilise le service_role pour insérer la demande : le formulaire est
   // public, l'utilisateur n'est pas authentifié, et toutes les validations
   // ont été faites ci-dessus. Le service_role bypass RLS et évite tout
@@ -80,7 +94,7 @@ export async function POST(request: Request) {
       occupation:           (body.occupation           as string).trim(),
       how_discovered:       body.how_discovered        ? (body.how_discovered as string).trim() : null,
       motivation:           (body.motivation           as string).trim(),
-      photo_url:            (body.photo_url            as string).trim(),
+      photo_url:            photoUrl,
       status:               "pending",
     })
     .select("id")
@@ -95,15 +109,11 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    // Pour faciliter le diagnostic en production, on inclut le détail Supabase
-    // (la table admission_requests est insérée publiquement — aucun risque de fuite sensible)
+    // Le détail de l'erreur DB reste côté serveur (console.error ci-dessus) :
+    // ne jamais exposer error.message/hint/code à un endpoint public non
+    // authentifié (fuite de schéma / structure interne).
     return NextResponse.json(
-      {
-        error: "Erreur lors de la soumission. Veuillez réessayer.",
-        details: error.message,
-        code: error.code ?? undefined,
-        hint: error.hint ?? undefined,
-      },
+      { error: "Erreur lors de la soumission. Veuillez réessayer." },
       { status: 500 }
     );
   }

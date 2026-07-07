@@ -99,8 +99,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // Générer le chemin de stockage + URL signée
-  const ext = file_name.split(".").pop()?.toLowerCase() ?? "webm";
+  // Générer le chemin de stockage + URL signée.
+  // L'extension provient de file_name (entrée utilisateur) : on la restreint à
+  // [a-z0-9] pour éviter toute traversée de chemin (« / », « .. ») dans le
+  // storage_path. Le nom de base est un UUID aléatoire.
+  const rawExt = file_name.split(".").pop()?.toLowerCase() ?? "";
+  const ext = /^[a-z0-9]{1,10}$/.test(rawExt) ? rawExt : "webm";
   const storagePath = `${newLib.id}/${crypto.randomUUID()}.${ext}`;
 
   const { data: signed, error: signError } = await admin.storage
