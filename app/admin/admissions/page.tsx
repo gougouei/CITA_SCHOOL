@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
+import { useSortableData, SortableTh, type SortColumn } from "@/components/ui/sortable-table";
 
 type Status = "pending" | "approved" | "rejected";
 type MaritalStatus = "single" | "married" | "divorced" | "widowed";
@@ -38,6 +39,16 @@ const MARITAL_LABEL: Record<MaritalStatus, string> = {
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
+
+// Colonnes du tableau (triables via clic sur l'en-tête ; « Actions » non triable)
+const ADMISSION_COLUMNS: SortColumn<Admission>[] = [
+  { key: "name",    label: "Nom complet", sortValue: (a) => `${a.first_name} ${a.last_name}` },
+  { key: "email",   label: "Email",       sortValue: (a) => a.email },
+  { key: "country", label: "Pays",        sortValue: (a) => a.country_of_residence },
+  { key: "created", label: "Date",        sortValue: (a) => a.created_at },
+  { key: "status",  label: "Statut",      sortValue: (a) => a.status },
+  { key: "actions", label: "Actions" },
+];
 
 function calculateAge(dob: string) {
   const birth = new Date(dob);
@@ -133,6 +144,10 @@ export default function AdminAdmissionsPage() {
 
   const filtered = filter === "all" ? admissions : admissions.filter((a) => a.status === filter);
 
+  // Tri du tableau (par défaut : les demandes les plus récentes en premier)
+  const { sorted, sortKey, direction, requestSort } =
+    useSortableData(filtered, ADMISSION_COLUMNS, { key: "created", direction: "desc" });
+
   const counts = {
     all:      admissions.length,
     pending:  admissions.filter((a) => a.status === "pending").length,
@@ -197,15 +212,13 @@ export default function AdminAdmissionsPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr>
-                    {["Nom complet", "Email", "Pays", "Date", "Statut", "Actions"].map((h) => (
-                      <th key={h} className="text-left px-6 py-3 text-[0.7rem] font-bold tracking-[0.08em] uppercase text-muted-fg bg-secondary border-b border-border">
-                        {h}
-                      </th>
+                    {ADMISSION_COLUMNS.map((col) => (
+                      <SortableTh key={col.key} column={col} sortKey={sortKey} direction={direction} onSort={requestSort} />
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((a) => (
+                  {sorted.map((a) => (
                     <tr key={a.id} className="hover:bg-muted-bg border-b border-border last:border-0">
                       <td className="px-6 py-[0.875rem] text-sm font-semibold">
                         <div className="flex items-center gap-3">

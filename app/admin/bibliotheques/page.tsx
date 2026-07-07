@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
 import { UploadModal } from "@/components/library/upload-modal";
 import { ReaderModal } from "@/components/library/reader-modal";
-import { FileThumbnail } from "@/components/library/file-thumbnail";
 import { ClassAssignmentModal } from "@/components/library/class-assignment-modal";
+import { useSortableData, SortableTh, type SortColumn } from "@/components/ui/sortable-table";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FileType = "pdf" | "video" | "audio" | "pptx" | "other";
@@ -26,8 +27,6 @@ interface FileItem {
   classeIds: string[]; // classes ayant accès à ce fichier
 }
 
-type SortKey = "date_desc" | "date_asc" | "name" | "size";
-
 // ─── Palette de couleurs cyclique pour les classes ─────────────────────────────
 const CLASS_PALETTE = [
   { color: "text-[hsl(200,70%,38%)]", bg: "bg-[hsla(200,70%,50%,0.1)]", dot: "bg-[hsl(200,70%,38%)]" },
@@ -46,19 +45,22 @@ const TYPE_CONFIG: Record<FileType, { label: string; icon: string; color: string
   other: { label: "Autre",        icon: "📎", color: "text-muted-fg",           iconBg: "bg-muted-bg",                 dot: "bg-muted-fg"           },
 };
 
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "date_desc", label: "Plus récent" },
-  { value: "date_asc",  label: "Plus ancien" },
-  { value: "name",      label: "Nom A→Z" },
-  { value: "size",      label: "Taille" },
-];
-
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 }
 function formatSize(mb: number) {
   return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb.toFixed(1)} MB`;
 }
+
+// Colonnes du tableau (triables via clic sur l'en-tête ; « Actions » non triable)
+const LIBRARY_COLUMNS: SortColumn<FileItem>[] = [
+  { key: "name",    label: "Fichier",      sortValue: (f) => f.name },
+  { key: "type",    label: "Type",         sortValue: (f) => TYPE_CONFIG[f.type]?.label ?? f.type },
+  { key: "classes", label: "Classes",      sortValue: (f) => f.classeIds.length },
+  { key: "size",    label: "Taille",       sortValue: (f) => f.size },
+  { key: "created", label: "Date d'ajout", sortValue: (f) => f.addedAt },
+  { key: "actions", label: "Actions" },
+];
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 export default function AdminBibliothequesPage() {
@@ -70,7 +72,6 @@ export default function AdminBibliothequesPage() {
   const [error,        setError]        = useState<string | null>(null);
   const [activeClasse, setActiveClasse] = useState<string>("all");
   const [activeType,   setActiveType]   = useState<string>("all");
-  const [sortKey,      setSortKey]      = useState<SortKey>("date_desc");
   const [showUpload,   setShowUpload]   = useState(false);
   const [readerFile,   setReaderFile]   = useState<FileItem | null>(null);
   const [classFile,    setClassFile]    = useState<FileItem | null>(null);
@@ -129,17 +130,14 @@ export default function AdminBibliothequesPage() {
   const classConfig: Record<string, (typeof CLASS_PALETTE)[number]> = {};
   classes.forEach((c, i) => { classConfig[c.id] = CLASS_PALETTE[i % CLASS_PALETTE.length]; });
 
-  // Files filtrés
+  // Files filtrés (le tri est géré par les en-têtes de colonne)
   const filtered = files
     .filter((f) => activeClasse === "all" || f.classeIds.includes(activeClasse))
-    .filter((f) => activeType   === "all" || f.type === activeType)
-    .sort((a, b) => {
-      if (sortKey === "date_desc") return b.addedAt.localeCompare(a.addedAt);
-      if (sortKey === "date_asc")  return a.addedAt.localeCompare(b.addedAt);
-      if (sortKey === "name")      return a.name.localeCompare(b.name);
-      if (sortKey === "size")      return b.size - a.size;
-      return 0;
-    });
+    .filter((f) => activeType   === "all" || f.type === activeType);
+
+  // Tri du tableau (par défaut : les fichiers les plus récemment ajoutés en premier)
+  const { sorted, sortKey, direction, requestSort } =
+    useSortableData(filtered, LIBRARY_COLUMNS, { key: "created", direction: "desc" });
 
   const classPool = activeClasse === "all" ? files : files.filter((f) => f.classeIds.includes(activeClasse));
 
@@ -150,11 +148,6 @@ export default function AdminBibliothequesPage() {
       count:   classPool.filter((f) => f.type === t).length,
       totalMb: classPool.filter((f) => f.type === t).reduce((s, f) => s + f.size, 0),
     }));
-
-  const grouped = (Object.keys(TYPE_CONFIG) as FileType[]).reduce<Record<string, FileItem[]>>((acc, t) => {
-    acc[t] = filtered.filter((f) => f.type === t);
-    return acc;
-  }, {});
 
   return (
     <>
@@ -288,48 +281,47 @@ export default function AdminBibliothequesPage() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-[0.8rem] text-muted-fg">Trier par :</span>
-                <select
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="font-sans text-sm bg-white border border-border rounded-md px-3 h-9 outline-none focus:border-citsa-red-hex transition-all cursor-pointer"
-                >
-                  {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-              </div>
+              <span className="text-[0.75rem] text-muted-fg self-center">
+                Cliquez sur un en-tête de colonne pour trier.
+              </span>
             </div>
 
-            {/* Contenu */}
+            {/* Contenu — tableau triable */}
             {filtered.length === 0 ? (
               <div className="text-center py-16 sm:py-20 border-2 border-dashed border-border rounded-2xl">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-muted-bg flex items-center justify-center text-2xl">📚</div>
                 <p className="text-[#141414] font-semibold mb-1">Aucun fichier dans la bibliothèque</p>
                 <p className="text-muted-fg text-sm">
-                  La fonctionnalité d&apos;upload sera bientôt disponible. Les fichiers ajoutés apparaîtront ici, classés par niveau.
+                  Les fichiers ajoutés apparaîtront ici. Utilisez « Ajouter un fichier » pour commencer.
                 </p>
               </div>
-            ) : activeType === "all" ? (
-              <div className="flex flex-col gap-8">
-                {(Object.entries(grouped) as [FileType, FileItem[]][])
-                  .filter(([, g]) => g.length > 0)
-                  .map(([type, group]) => (
-                    <section key={type}>
-                      <div className="flex items-center gap-3 mb-4">
-                        <span className={`w-2 h-2 rounded-full ${TYPE_CONFIG[type].dot}`} />
-                        <h2 className="text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-fg">
-                          {TYPE_CONFIG[type].label}
-                        </h2>
-                        <span className="text-[0.7rem] text-muted-fg">
-                          — {group.length} fichier{group.length > 1 ? "s" : ""}
-                        </span>
-                      </div>
-                      <FileGrid files={group} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} onManageClasses={setClassFile} />
-                    </section>
-                  ))}
-              </div>
             ) : (
-              <FileGrid files={filtered} classes={classes} classConfig={classConfig} showClasse={activeClasse === "all"} onView={setReaderFile} onDelete={handleDelete} onManageClasses={setClassFile} />
+              <Card>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        {LIBRARY_COLUMNS.map((col) => (
+                          <SortableTh key={col.key} column={col} sortKey={sortKey} direction={direction} onSort={requestSort} />
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sorted.map((f) => (
+                        <FileRow
+                          key={f.id}
+                          file={f}
+                          classes={classes}
+                          classConfig={classConfig}
+                          onView={setReaderFile}
+                          onDelete={handleDelete}
+                          onManageClasses={setClassFile}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             )}
           </>
         )}
@@ -370,122 +362,103 @@ export default function AdminBibliothequesPage() {
   );
 }
 
-// ─── File Grid ────────────────────────────────────────────────────────────────
-function FileGrid({
-  files, classes, classConfig, showClasse, onView, onDelete, onManageClasses,
-}: {
-  files: FileItem[];
-  classes: ClassOption[];
-  classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
-  showClasse: boolean;
-  onView:           (f: FileItem) => void;
-  onDelete:         (id: string)  => void;
-  onManageClasses:  (f: FileItem) => void;
-}) {
-  return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
-      {files.map((f) => (
-        <FileCard
-          key={f.id}
-          file={f}
-          classes={classes}
-          classConfig={classConfig}
-          showClasse={showClasse}
-          onView={onView}
-          onDelete={onDelete}
-          onManageClasses={onManageClasses}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── File Card ────────────────────────────────────────────────────────────────
-function FileCard({
-  file, classes, classConfig, showClasse, onView, onDelete, onManageClasses,
+// ─── File Row ─────────────────────────────────────────────────────────────────
+function FileRow({
+  file, classes, classConfig, onView, onDelete, onManageClasses,
 }: {
   file: FileItem;
   classes: ClassOption[];
   classConfig: Record<string, (typeof CLASS_PALETTE)[number]>;
-  showClasse: boolean;
   onView:          (f: FileItem) => void;
   onDelete:        (id: string)  => void;
   onManageClasses: (f: FileItem) => void;
 }) {
   const cfg = TYPE_CONFIG[file.type] ?? TYPE_CONFIG.other;
-  const thumbType: "pdf" | "video" | "audio" | "pptx" | "other" = file.type;
 
   return (
-    <div className="bg-white border border-border rounded-xl flex flex-col gap-3 hover:shadow-card hover:border-[#d0d0d0] transition-all duration-150 overflow-hidden">
-      {/* Miniature cliquable */}
-      <button
-        type="button"
-        onClick={() => onView(file)}
-        className="block w-full text-left cursor-pointer"
-        aria-label={`Ouvrir ${file.name}`}
-      >
-        <FileThumbnail fileId={file.id} type={thumbType} name={file.name} />
-      </button>
-
-      <div className="px-4 pt-1 flex-1 flex flex-col gap-2">
-        <p className="text-sm font-semibold leading-snug line-clamp-2 text-[#141414]">{file.name}</p>
-
-        {showClasse && (
-          <div className="flex flex-wrap gap-1">
-            {file.classeIds.length === 0 ? (
-              <span className="inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full bg-[hsla(35,90%,50%,0.1)] text-[hsl(35,90%,35%)]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[hsl(35,90%,35%)]" />
-                Aucune classe
-              </span>
-            ) : (
-              file.classeIds.map((cid) => {
-                const cls = classes.find((c) => c.id === cid);
-                const ccfg = classConfig[cid];
-                if (!cls || !ccfg) return null;
-                return (
-                  <span key={cid} className={`inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full ${ccfg.bg} ${ccfg.color}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${ccfg.dot}`} />
-                    {cls.name}
-                  </span>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="px-4 flex items-center justify-between text-[0.72rem] text-muted-fg border-t border-border pt-2.5">
-        <span className={`inline-flex items-center gap-1 ${cfg.color}`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
-          {formatSize(file.size)}
-        </span>
-        <span>{formatDate(file.addedAt)}</span>
-      </div>
-
-      <div className="px-4 pb-4 flex gap-2">
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => onView(file)}>Voir</Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onManageClasses(file)}
-          title="Gérer les classes ayant accès"
-          aria-label="Gérer les classes"
+    <tr className="hover:bg-muted-bg border-b border-border last:border-0">
+      {/* Fichier (icône + nom, cliquable pour ouvrir le lecteur) */}
+      <td className="px-6 py-4">
+        <button
+          type="button"
+          onClick={() => onView(file)}
+          className="flex items-center gap-3 text-left group max-w-[320px]"
+          aria-label={`Ouvrir ${file.name}`}
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx={9} cy={7} r={4}/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-        </Button>
-        <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)} aria-label="Supprimer">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
-          </svg>
-        </Button>
-      </div>
-    </div>
+          <span className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg flex-shrink-0 ${cfg.iconBg}`}>
+            {cfg.icon}
+          </span>
+          <span className="text-sm font-semibold text-[#141414] line-clamp-2 group-hover:text-citsa-red-hex transition-colors">
+            {file.name}
+          </span>
+        </button>
+      </td>
+
+      {/* Type */}
+      <td className="px-6 py-4">
+        <span className={`inline-flex items-center gap-1.5 text-[0.72rem] font-medium whitespace-nowrap ${cfg.color}`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+          {cfg.label}
+        </span>
+      </td>
+
+      {/* Classes */}
+      <td className="px-6 py-4">
+        <div className="flex flex-wrap gap-1">
+          {file.classeIds.length === 0 ? (
+            <span className="inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full bg-[hsla(35,90%,50%,0.1)] text-[hsl(35,90%,35%)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[hsl(35,90%,35%)]" />
+              Aucune classe
+            </span>
+          ) : (
+            file.classeIds.map((cid) => {
+              const cls = classes.find((c) => c.id === cid);
+              const ccfg = classConfig[cid];
+              if (!cls || !ccfg) return null;
+              return (
+                <span key={cid} className={`inline-flex items-center gap-1 text-[0.65rem] font-medium px-2 py-[0.2rem] rounded-full ${ccfg.bg} ${ccfg.color}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${ccfg.dot}`} />
+                  {cls.name}
+                </span>
+              );
+            })
+          )}
+        </div>
+      </td>
+
+      {/* Taille */}
+      <td className="px-6 py-4 text-sm text-muted-fg whitespace-nowrap">{formatSize(file.size)}</td>
+
+      {/* Date d'ajout */}
+      <td className="px-6 py-4 text-sm text-muted-fg whitespace-nowrap">{formatDate(file.addedAt)}</td>
+
+      {/* Actions */}
+      <td className="px-6 py-4">
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => onView(file)}>Voir</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onManageClasses(file)}
+            title="Gérer les classes ayant accès"
+            aria-label="Gérer les classes"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx={9} cy={7} r={4}/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </Button>
+          <Button variant="destructive" size="sm" onClick={() => onDelete(file.id)} aria-label="Supprimer">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+            </svg>
+          </Button>
+        </div>
+      </td>
+    </tr>
   );
 }
 

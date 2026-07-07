@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
+import { useSortableData, SortableTh, type SortColumn } from "@/components/ui/sortable-table";
 
 interface Professor {
   id: string;
   full_name: string;
   username: string;
   is_active: boolean;
+  created_at: string;
   classes: string[]; // class ids
 }
 
@@ -19,6 +21,20 @@ interface ClassOption {
   name: string;
   description: string;
 }
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+// Colonnes du tableau (triables via clic sur l'en-tête ; « Actions » non triable)
+const PROFESSOR_COLUMNS: SortColumn<Professor>[] = [
+  { key: "name",     label: "Nom",               sortValue: (p) => p.full_name },
+  { key: "username", label: "Username",          sortValue: (p) => p.username },
+  { key: "classes",  label: "Classes assignées", sortValue: (p) => p.classes.length },
+  { key: "created",  label: "Date d'ajout",      sortValue: (p) => p.created_at },
+  { key: "status",   label: "Statut",            sortValue: (p) => p.is_active },
+  { key: "actions",  label: "Actions" },
+];
 
 function getInitials(name: string) {
   return name
@@ -47,7 +63,7 @@ export default function AdminProfesseursPage() {
       const [profsRes, classesRes, membersRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, username, is_active")
+          .select("id, full_name, username, is_active, created_at")
           .eq("role", "professor")
           .order("full_name"),
         supabase.from("classes").select("id, name, description").order("name"),
@@ -60,11 +76,12 @@ export default function AdminProfesseursPage() {
 
       const members = membersRes.data ?? [];
       const enriched: Professor[] = (profsRes.data ?? []).map((p) => ({
-        id:        p.id,
-        full_name: p.full_name,
-        username:  p.username,
-        is_active: p.is_active,
-        classes:   members.filter((m) => m.user_id === p.id).map((m) => m.class_id),
+        id:         p.id,
+        full_name:  p.full_name,
+        username:   p.username,
+        is_active:  p.is_active,
+        created_at: p.created_at,
+        classes:    members.filter((m) => m.user_id === p.id).map((m) => m.class_id),
       }));
 
       setProfessors(enriched);
@@ -82,6 +99,10 @@ export default function AdminProfesseursPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tri du tableau (par défaut : les plus récemment ajoutés en premier)
+  const { sorted, sortKey, direction, requestSort } =
+    useSortableData(professors, PROFESSOR_COLUMNS, { key: "created", direction: "desc" });
 
   async function handleToggleActive(id: string, currentActive: boolean) {
     setError(null);
@@ -188,18 +209,13 @@ export default function AdminProfesseursPage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {["Nom", "Username", "Classes assignées", "Statut", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left px-6 py-3 text-[0.7rem] font-bold tracking-[0.08em] uppercase text-muted-fg bg-secondary border-b border-border"
-                    >
-                      {h}
-                    </th>
+                  {PROFESSOR_COLUMNS.map((col) => (
+                    <SortableTh key={col.key} column={col} sortKey={sortKey} direction={direction} onSort={requestSort} />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {professors.map((prof) => (
+                {sorted.map((prof) => (
                   <tr key={prof.id} className="hover:bg-muted-bg border-b border-border last:border-0">
 
                     {/* Nom */}
@@ -240,6 +256,11 @@ export default function AdminProfesseursPage() {
                           <span className="text-[0.75rem] text-muted-fg italic">Aucune classe</span>
                         )}
                       </div>
+                    </td>
+
+                    {/* Date d'ajout */}
+                    <td className="px-6 py-[0.875rem] text-sm text-muted-fg whitespace-nowrap">
+                      {formatDate(prof.created_at)}
                     </td>
 
                     {/* Statut */}

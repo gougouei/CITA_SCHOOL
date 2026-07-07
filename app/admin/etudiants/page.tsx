@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { X, KeyRound, User, BookOpen, ShieldCheck, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { useSortableData, SortableTh, type SortColumn } from "@/components/ui/sortable-table";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Student {
@@ -13,6 +14,7 @@ interface Student {
   full_name: string;
   username: string;
   is_active: boolean;
+  created_at: string;
   classes: string[];   // class ids
 }
 
@@ -20,6 +22,20 @@ interface ClassOption {
   id: string;
   name: string;
 }
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+// Colonnes du tableau (triables via clic sur l'en-tête ; « Actions » non triable)
+const STUDENT_COLUMNS: SortColumn<Student>[] = [
+  { key: "name",     label: "Étudiant",     sortValue: (s) => s.full_name },
+  { key: "username", label: "Username",     sortValue: (s) => s.username },
+  { key: "classes",  label: "Classes",      sortValue: (s) => s.classes.length },
+  { key: "created",  label: "Date d'ajout", sortValue: (s) => s.created_at },
+  { key: "status",   label: "Statut",       sortValue: (s) => s.is_active },
+  { key: "actions",  label: "Actions" },
+];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AdminEtudiantsPage() {
@@ -39,7 +55,7 @@ export default function AdminEtudiantsPage() {
       const [studentsRes, classesRes, membersRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("id, full_name, username, is_active")
+          .select("id, full_name, username, is_active, created_at")
           .eq("role", "student")
           .order("full_name"),
         supabase.from("classes").select("id, name").order("name"),
@@ -52,11 +68,12 @@ export default function AdminEtudiantsPage() {
 
       const members = membersRes.data ?? [];
       const enriched: Student[] = (studentsRes.data ?? []).map((s) => ({
-        id:        s.id,
-        full_name: s.full_name,
-        username:  s.username,
-        is_active: s.is_active,
-        classes:   members.filter((m) => m.user_id === s.id).map((m) => m.class_id),
+        id:         s.id,
+        full_name:  s.full_name,
+        username:   s.username,
+        is_active:  s.is_active,
+        created_at: s.created_at,
+        classes:    members.filter((m) => m.user_id === s.id).map((m) => m.class_id),
       }));
 
       setStudents(enriched);
@@ -72,6 +89,10 @@ export default function AdminEtudiantsPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Tri du tableau (par défaut : les plus récemment ajoutés en premier)
+  const { sorted, sortKey, direction, requestSort } =
+    useSortableData(students, STUDENT_COLUMNS, { key: "created", direction: "desc" });
 
   function openModal(s: Student) {
     setEditing({ ...s, classes: [...s.classes] });
@@ -183,15 +204,13 @@ export default function AdminEtudiantsPage() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  {["Étudiant", "Username", "Classes", "Statut", "Actions"].map((h) => (
-                    <th key={h} className="text-left px-6 py-3 text-[0.7rem] font-bold tracking-[0.08em] uppercase text-muted-fg bg-secondary border-b border-border">
-                      {h}
-                    </th>
+                  {STUDENT_COLUMNS.map((col) => (
+                    <SortableTh key={col.key} column={col} sortKey={sortKey} direction={direction} onSort={requestSort} />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {students.map((s) => (
+                {sorted.map((s) => (
                   <tr key={s.id} className="hover:bg-muted-bg border-b border-border last:border-0 group">
                     {/* Étudiant */}
                     <td className="px-6 py-4">
@@ -225,6 +244,11 @@ export default function AdminEtudiantsPage() {
                             })
                         }
                       </div>
+                    </td>
+
+                    {/* Date d'ajout */}
+                    <td className="px-6 py-4 text-sm text-muted-fg whitespace-nowrap">
+                      {formatDate(s.created_at)}
                     </td>
 
                     {/* Statut */}
