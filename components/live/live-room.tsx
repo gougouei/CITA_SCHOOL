@@ -47,6 +47,9 @@ const JITSI_SCRIPT_URL = USING_JAAS
 export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }: LiveRoomProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef       = useRef<JitsiMeetExternalAPI | null>(null);
+  // Garde-fou : ne terminer le live qu'une seule fois, quelle que soit la
+  // source (bouton « Terminer », raccrocher Jitsi, fermeture de l'onglet).
+  const endedRef     = useRef(false);
 
   // ─── Enregistrement local (MediaRecorder API) ─────────────────────────────
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -187,6 +190,56 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
     };
   }, []);
 
+  // ─── Auto-fin du live si l'hôte ferme l'onglet / quitte la page ───────────
+  // Sans ça, une session dont l'hôte ferme brutalement l'onglet resterait en
+  // statut `live` indéfiniment en base (session « zombie ») : les élèves la
+  // verraient « en direct » et tenteraient de rejoindre une salle vide.
+  // Réservé à l'hôte (prof/admin) — un élève qui ferme son onglet ne coupe rien.
+  useEffect(() => {
+    if (!isHost) return;
+
+    function endLiveBeacon() {
+      if (endedRef.current) return;
+      endedRef.current = true;
+      const payload = JSON.stringify({ session_id: sessionId });
+      // sendBeacon survit à la fermeture de l'onglet (un fetch classique est
+      // tué par le navigateur pendant l'unload). Cookies same-origin inclus,
+      // donc l'auth Supabase passe et le serveur vérifie host_id/admin.
+      if (typeof navigator.sendBeacon === "function") {
+        const blob = new Blob([payload], { type: "application/json" });
+        if (navigator.sendBeacon("/api/professor/end-live", blob)) return;
+      }
+      // Fallback pour les rares navigateurs sans sendBeacon
+      fetch("/api/professor/end-live", {
+        method:    "POST",
+        headers:   { "Content-Type": "application/json" },
+        body:      payload,
+        keepalive: true,
+      }).catch(() => { /* ignore */ });
+    }
+
+    // beforeunload : demande une confirmation native avant de fermer/rafraîchir,
+    // pour éviter qu'une fermeture accidentelle ne termine le cours par erreur.
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (endedRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    // pagehide : la page est réellement quittée (après confirmation) → on
+    // termine le live. Plus fiable que beforeunload, notamment sur Safari/mobile.
+    function onPageHide(e: PageTransitionEvent) {
+      if (e.persisted) return; // mise en cache bfcache : la page peut revenir
+      endLiveBeacon();
+    }
+
+    window.addEventListener("beforeunload", onBeforeUnload);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("pagehide", onPageHide);
+    };
+  }, [isHost, sessionId]);
+
   // ─── 1. Vérifier l'accès dès le mount ──────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -297,7 +350,14 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
     });
 
     api.addListener("readyToClose", () => {
-      onLeave();
+      // Hôte : raccrocher depuis Jitsi termine le live pour tout le monde
+      // (la page est encore vivante, on peut faire l'appel async normal).
+      if (isHost && onEnd) {
+        endedRef.current = true;
+        Promise.resolve(onEnd()).finally(() => onLeave());
+      } else {
+        onLeave();
+      }
     });
 
     api.addListener("cameraError", () => {
@@ -326,6 +386,7 @@ export function LiveRoom({ sessionId, onLeave, isHost, onEnd, onRecordingReady }
 
   async function handleEndLive() {
     if (!confirm("Terminer le cours en direct pour tous les participants ?")) return;
+    endedRef.current = true;
     if (onEnd) await onEnd();
     onLeave();
   }
