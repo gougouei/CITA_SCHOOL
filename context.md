@@ -1,7 +1,7 @@
 # CITSA OCCULTE SCHOOL INTERNATIONAL — Contexte Projet
 
 > Fichier de référence complet. Redonner ce fichier à Claude Code en début de session pour restaurer tout le contexte.
-> **Dernière mise à jour : v0.9.0**
+> **Dernière mise à jour : v0.10.0**
 
 ---
 
@@ -13,7 +13,7 @@ Elle permet de gérer les étudiants, professeurs, classes, bibliothèques numé
 **Repo GitHub :** https://github.com/gougouei/CITA_SCHOOL
 **Répertoire local :** `/Users/mac/Documents/cita_school`
 **Branche principale :** `main`
-**Dernière version :** `v0.9.0`
+**Dernière version :** `v0.10.0`
 **Production :** https://cita-school.vercel.app (auto-déploie sur push `main`)
 
 ---
@@ -248,6 +248,7 @@ cita_school/
 │       ├── badge.tsx
 │       ├── card.tsx
 │       ├── input.tsx
+│       ├── sortable-table.tsx                # useSortableData + SortableTh (tri par en-tête)
 │       └── alert.tsx
 │
 ├── contexts/
@@ -270,7 +271,7 @@ cita_school/
 │   └── migration_live_recordings.sql         # Migration recording_file_id + RLS replays
 │
 ├── middleware.ts                             # Protection par rôle
-├── next.config.ts                            # Headers Permissions-Policy pour Jitsi
+├── next.config.ts                            # Permissions-Policy (Jitsi) + headers de sécurité (nosniff, X-Frame-Options, Referrer-Policy, HSTS, CSP)
 ├── tailwind.config.ts
 ├── package.json                              # Script postinstall copie le worker PDF
 ├── .env.local
@@ -289,8 +290,10 @@ cita_school/
 | Étudiants | ✅ Supabase | CRUD complet · Modal création (credentials via API) · Toggle actif |
 | Professeurs | ✅ Supabase | Idem étudiants |
 | Classes | ✅ Supabase | CRUD + sélection profs |
-| Bibliothèques | ✅ **Full** | Upload direct Supabase (classes optionnelles à l'upload) · miniatures (PDF 1ère page, vidéo 1ère frame) · gestion des classes après coup via modal · suppression |
+| Bibliothèques | ✅ **Full** | **Tableau triable** (Fichier, Type, Classes, Taille, Date d'ajout) · upload direct Supabase (classes optionnelles) · gestion des classes via modal · aperçu via « Voir » · filtres par classe + stats par type · suppression |
 | Admissions | ✅ Supabase | Liste + détails + approuver = crée compte étudiant auto |
+
+> **Listes admin triables (v0.10.0)** — Étudiants, Professeurs, Admissions et Bibliothèques affichent une colonne **« Date d'ajout »** (`created_at`) et se trient en cliquant sur n'importe quel en-tête de colonne (asc/desc). Composant partagé : `components/ui/sortable-table.tsx`. Tri par défaut : plus récent d'abord.
 | Calendrier | ✅ Supabase | Création événements (global ou par classe) |
 | Profil | ✅ Supabase | Upload avatar + édition nom |
 | Communauté | ✅ Supabase | CitsaOccultBlog (poster, liker, commenter, repartager) |
@@ -356,6 +359,7 @@ cita_school/
 - UI Jitsi prebuilt complète (vidéo, audio, screen share, chat, raise hand, recording)
 - Toolbar différent pour modérateur vs participant
 - Logo CITSA en overlay top-left de la vidéo (visible toujours, même hors plein-écran)
+- **Anti-live-zombie (v0.10.0)** : pour l'hôte uniquement, le live est terminé automatiquement s'il quitte la page — `readyToClose` (raccrocher Jitsi) → `onEnd`, `pagehide` → `navigator.sendBeacon('/api/professor/end-live')` (fiable pendant l'unload), `beforeunload` → confirmation native. Garde-fou `endedRef` (une seule fin) + endpoint `end-live` idempotent. Évite les sessions restées `status='live'` en base.
 
 ### Helper : `lib/jaas.ts`
 - `getJaasConfig()` lit `JAAS_APP_ID` + `JAAS_KID` + `JAAS_PRIVATE_KEY` (normalise les `\n`)
@@ -553,6 +557,12 @@ Tailles adaptatives :
 - [ ] Statistiques détaillées admin (graphiques)
 - [ ] Recherche globale dans le dashboard
 
+### Sécurité (suivi post-revue v0.10.0)
+- [ ] **Captcha / rate-limit** sur `/api/admission` (seul endpoint public sans protection anti-spam ; le login est déjà limité par Supabase Auth)
+- [ ] **CSP stricte** (`script-src`/`frame-src`…) — à tester sur la page live (iframe Jitsi + pdfjs) avant déploiement ; seul le sous-ensemble sûr `frame-ancestors/base-uri/object-src` est actif
+- [ ] **Upgrade Next.js** quand une version patchée corrige la vuln postcss (ne pas `npm audit fix --force`)
+- [ ] Retirer le mot de passe admin en clair de ce fichier (`context.md` est suivi par git) et le faire tourner
+
 ---
 
 ## 17. Variables d'environnement (`.env.local`)
@@ -617,7 +627,19 @@ claude mcp add supabase -e SUPABASE_ACCESS_TOKEN=<token> -- npx -y @supabase/mcp
 
 ## 20. Historique des versions
 
-### v0.9.0 — JaaS, exercices QCM, notifications, branding *(actuelle)*
+### v0.10.0 — Tableaux triables, anti-live-zombie, durcissement sécurité *(actuelle)*
+- **Admin — tableaux triables + colonne date** : composant réutilisable `components/ui/sortable-table.tsx` (`useSortableData` + `SortableTh`). Colonne « Date d'ajout » (`created_at`) et tri par clic sur en-tête (asc/desc, numérique/texte accent-insensible) sur **Étudiants, Professeurs, Admissions, Bibliothèques**. Tri par défaut : plus récent d'abord.
+- **Bibliothèques admin** : la grille de cartes devient un **tableau triable** (Fichier, Type, Classes, Taille, Date d'ajout) ; filtres par classe + stats par type conservés ; menu « Trier par » remplacé par le tri par en-tête.
+- **Anti-live-zombie** : `live-room.tsx` termine automatiquement le live si l'hôte quitte la page (`readyToClose` → end-live, `pagehide` → `sendBeacon`, `beforeunload` → confirmation). Réservé à l'hôte ; garde-fou `endedRef` + endpoint idempotent.
+- **Durcissement sécurité** (revue complète) :
+  - Auth : `getSession()` → `getUser()` (validation JWT serveur) sur create-user, delete-user, reset-password, submit-exercise
+  - Admission publique : plus d'exposition du détail d'erreur DB ; `photo_url` validée comme URL http(s)
+  - recording-prepare : extension de fichier restreinte à `[a-z0-9]` (anti path-traversal)
+  - `next.config.ts` : X-Content-Type-Options, X-Frame-Options, Referrer-Policy, HSTS + CSP sûre
+  - Dépendances : `npm audit fix` (js-yaml)
+- **Suppression étudiants/profs vérifiée** : toutes les FK vers `profiles`/`auth.users` sont `CASCADE` ou `SET NULL` (aucune ne bloque). Un prof supprimé : ses classes/bibliothèques survivent (`created_by = NULL`), ses exercices partent en cascade.
+
+### v0.9.0 — JaaS, exercices QCM, notifications, branding
 - **Migration Jitsi Meet → JaaS (8x8.vc)** :
   - Plus de limite 5 min (le free `meet.jit.si` a commencé à imposer cette limite en iframe)
   - JWT RS256 signé serveur via `lib/jaas.ts` (lib `jsonwebtoken`)
